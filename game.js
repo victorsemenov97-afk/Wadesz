@@ -2018,22 +2018,27 @@ function drawTeleportArrows(){
 
 function drawPiece(cx,cy,rad,col,highlight,selected,pulse){
   pulse = pulse||0;
+  var anim = col && col.anim;
+  var _now = (typeof performance!=='undefined'&&performance.now)?performance.now():Date.now();
+  var phex = col.hex, pdark = col.dark;
+  if(anim==='rainbow'){ var _hue=(_now/10 + (cx+cy))%360; phex=hslHex(_hue,85,60); pdark=hslHex(_hue,85,34); }
   ctx.save();
+  if(anim==='glow'){ ctx.shadowColor=phex; ctx.shadowBlur=rad*(0.8+0.9*(0.5+0.5*Math.sin(_now/280))); }
   if(highlight||selected){
     ctx.shadowColor = selected ? '#ffffff' : col.hex; 
     ctx.shadowBlur = rad*(1.4+0.8*pulse);
   }
   
   const grad = ctx.createRadialGradient(cx-rad*0.35, cy-rad*0.35, rad*0.05, cx, cy, rad);
-  grad.addColorStop(0, lighten(col.hex, 0.45));
-  grad.addColorStop(0.5, col.hex);
-  grad.addColorStop(1, col.dark);
+  grad.addColorStop(0, lighten(phex, 0.45));
+  grad.addColorStop(0.5, phex);
+  grad.addColorStop(1, pdark);
   
   ctx.fillStyle = grad;
   ctx.beginPath(); ctx.arc(cx,cy,rad,0,7); ctx.fill();
   
   ctx.lineWidth = Math.max(1.5, rad*0.15);
-  ctx.strokeStyle = lighten(col.dark, 0.2);
+  ctx.strokeStyle = lighten(pdark, 0.2);
   ctx.stroke();
   
   ctx.beginPath(); ctx.arc(cx, cy, rad*0.66, 0, 7);
@@ -2043,6 +2048,24 @@ function drawPiece(cx,cy,rad,col,highlight,selected,pulse){
   drawStar(cx, cy, rad*0.5);
   ctx.beginPath(); ctx.arc(cx-rad*0.45, cy-rad*0.48, rad*0.2, 0, 7);
   ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.fill();
+
+  if(anim==='sparkle'){
+    ctx.save();
+    for(var _s=0;_s<4;_s++){
+      var _sa=_now/500 + _s*(Math.PI/2);
+      var _sr=rad*(0.75+0.25*Math.sin(_now/300+_s));
+      ctx.globalAlpha=0.5+0.5*Math.sin(_now/200+_s);
+      ctx.fillStyle='#ffffff';
+      ctx.beginPath(); ctx.arc(cx+Math.cos(_sa)*_sr, cy+Math.sin(_sa)*_sr, Math.max(1,rad*0.12),0,7); ctx.fill();
+    }
+    ctx.restore();
+  } else if(anim==='orbit'){
+    ctx.save();
+    var _oa=_now/350;
+    ctx.fillStyle=lighten(phex,0.4);
+    ctx.beginPath(); ctx.arc(cx+Math.cos(_oa)*rad*1.15, cy+Math.sin(_oa)*rad*1.15, Math.max(1.5,rad*0.2),0,7); ctx.fill();
+    ctx.restore();
+  }
 
   if(highlight||selected){
     ctx.restore();
@@ -2064,6 +2087,13 @@ function lighten(hex, amt){
   let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
   r=Math.min(255,r+255*amt); g=Math.min(255,g+255*amt); b=Math.min(255,b+255*amt);
   return `rgb(${r|0},${g|0},${b|0})`;
+}
+function hslHex(h,s,l){
+  h=(h%360+360)%360; s/=100; l/=100;
+  var c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2, r=0,gg=0,b=0;
+  if(h<60){r=c;gg=x;} else if(h<120){r=x;gg=c;} else if(h<180){gg=c;b=x;} else if(h<240){gg=x;b=c;} else if(h<300){r=x;b=c;} else {r=c;b=x;}
+  var to=function(v){ v=Math.round((v+m)*255); v=v<0?0:v>255?255:v; var q=v.toString(16); return q.length<2?('0'+q):q; };
+  return '#'+to(r)+to(gg)+to(b);
 }
 
 function roundRect(x,y,w,h,r){
@@ -2441,7 +2471,7 @@ function flashDieResult(v){
 }
 function rollDice(power, vx, vy){
   if(rolling || mustPickPiece || gameOver || gameMode === 'physical') return;
-  if(NET.on && !netMyTurn()) return;
+  if(NET.on && !netCanDrive()) return;
   rolling = true;
   diceBtn.classList.add('disabled');
   diceBtn.classList.remove('hot');
@@ -2602,7 +2632,7 @@ function onDiceRolled(){
   }
   const slot = activePlayer();
   const m = mover();
-  if(slot.isAI){
+  if(slot.isAI || (NET.on && NET.isHost && NET.forceAI && NET.forceAI===m.dir)){
     mustPickPiece=false;
     diceHint.textContent='Бот думает…';
     setTimeout(()=>{ 
@@ -2616,6 +2646,7 @@ function onDiceRolled(){
     }, sp(550));
   } else {
     mustPickPiece = true;
+    if(NET.on && netMyTurn()){ NET.turnDeadline=Date.now()+20000; }
     if(movablePieces.length===1){
       const only = movablePieces[0];
       const acts = getActions(m, only);
@@ -2630,10 +2661,11 @@ function afterTurnAdvance(){
   draw();
   updateTurnBanner();
   const slot = activePlayer();
-  if(slot.isAI && !gameOver && gameMode !== 'physical'){
+  if(slot.isAI && !gameOver && gameMode !== 'physical' && (!NET.on || NET.isHost)){
     diceBtn.classList.add('disabled');
     setTimeout(rollDice, sp(650));
   }
+  try{ netStartTurnTimer(); netStartWatch(); }catch(e){}
 }
 
 function aiIsFoe(p, op){
@@ -3482,7 +3514,7 @@ function startGame(config){
   persistGame();
   radio('Экипажи, взлёт разрешаю. Курс по часовой.', players[currentIdx].dir);
 
-  if(activePlayer().isAI && gameMode !== 'physical') setTimeout(rollDice, 650);
+  if(activePlayer().isAI && gameMode !== 'physical' && (!NET.on || NET.isHost)) setTimeout(rollDice, 650);
 }
 
 function endGame(){
@@ -3819,7 +3851,7 @@ function resumeGame(){
   updateTurnBanner();
   draw();
   radio('Возвращаемся на курс, продолжаем задание.', players[currentIdx].dir);
-  if(activePlayer().isAI && gameMode !== 'physical') setTimeout(rollDice, sp(800));
+  if(activePlayer().isAI && gameMode !== 'physical' && (!NET.on || NET.isHost)) setTimeout(rollDice, sp(800));
 }
 
 addTapListener(document.getElementById('resumeBtn'), resumeGame);
@@ -3889,6 +3921,7 @@ resizeCanvas();
 
 /* ==================== ОНЛАЙН-РЕЖИМ (Firebase) ==================== */
 var NET = { on:false, code:null, myId:null, isHost:false, seats:{}, seatNames:{}, seatsMeta:{}, mySeat:null, roomRef:null, applying:false, seq:0, count:2, status:'idle', unsub:[] };
+var NET_PUBLIC=true;
 var ONLINE_DIRS = ['top','right','bottom','left'];
 var _fbDb = null;
 
@@ -3936,7 +3969,7 @@ function netCreateRoom(){
   var seats = {};
   seats[seatDirs[0]] = { uid: NET.myId, name:(profNick()||'Игрок 1'), avatar:profAvatar(), cos:profCosPieceBroadcast() };
   onlineMsg('Создаю комнату…');
-  roomRef.set({ host:NET.myId, count:NET.count, status:'lobby', public:true, hostName:(profNick()||'Игрок 1'), hostAvatar:profAvatar(), createdAt: firebase.database.ServerValue.TIMESTAMP, seats:seats, cos:hostCosBroadcast() })
+  roomRef.set({ host:NET.myId, count:NET.count, status:'lobby', public:NET_PUBLIC, hostName:(profNick()||'Игрок 1'), hostAvatar:profAvatar(), createdAt: firebase.database.ServerValue.TIMESTAMP, seats:seats, cos:hostCosBroadcast() })
     .then(function(){ NET.code=code; NET.isHost=true; NET.roomRef=roomRef; NET.mySeat=seatDirs[0]; netEnterLobby(); })
     .catch(function(e){ onlineMsg('Ошибка создания: '+e.message); });
 }
@@ -3996,8 +4029,8 @@ function renderLobbySeats(room){
     wrap.appendChild(row);
   });
   var so=document.getElementById('startOnlineBtn');
-  if(so){ so.style.display=(NET.isHost)?'block':'none'; so.classList.toggle('disabled', filled<2); }
-  lobbyMsg(NET.isHost ? (filled<2?'Ждём ещё игроков…':'Все в сборе — можно начинать!') : 'Ждём, когда хост начнёт…');
+  if(so){ so.style.display=(NET.isHost)?'block':'none'; so.classList.toggle('disabled', filled<1); }
+  try{ netManageBotFill(room, filled, seatDirs.length); }catch(e){ lobbyMsg(NET.isHost?'Ждём игроков…':'Ждём хоста…'); }
 }
 
 function netStartHost(){
@@ -4015,12 +4048,15 @@ function netStartClient(room){
   var activeDirs=seatDirs.filter(function(d){ return room.seats&&room.seats[d]; });
   activeDirs.forEach(function(d){ NET.seats[d]=room.seats[d].uid; NET.seatNames[d]=room.seats[d].name; });
   COSMETIC_BY_DIR={}; activeDirs.forEach(function(d){ var s=room.seats[d]; if(s&&s.cos&&s.cos.ph) COSMETIC_BY_DIR[d]=s.cos; });
+  try{ applyDiceSkin(); }catch(e){}
+  try{ reactStart(); }catch(e){}
+  NET.botDirs={}; activeDirs.forEach(function(d){ if(room.seats[d]&&room.seats[d].bot) NET.botDirs[d]=true; });
   ROOM_COS=(room&&room.cos)?room.cos:null; try{ applyDiceSkin(); }catch(e){}
   gameMode='ffa'; botDifficulty='normal'; gameSpeed='normal'; totalCount=activeDirs.length;
   try{ closeSheets(); }catch(e){}
   showScreen('game');
   if(NET.isHost){
-    var config=activeDirs.map(function(d){ return { dir:d, isAI:false }; });
+    var config=activeDirs.map(function(d){ var s=room.seats[d]; return { dir:d, isAI: !!(s&&s.bot) }; });
     startGame(config);
   } else {
     try{ turnBanner.textContent='Ожидание старта партии…'; }catch(e){}
@@ -4046,6 +4082,7 @@ function netAdjustTurnUI(){
     var nm=(NET.seatNames&&NET.seatNames[p.dir])?NET.seatNames[p.dir]:COLOR[p.dir].name;
     try{ turnBanner.textContent=COLOR[p.dir].icon+' Ход: '+nm+' · ожидание…'; turnBanner.classList.remove('pulse'); }catch(e){}
   }
+  try{ netStartTurnTimer(); netStartWatch(); }catch(e){}
 }
 
 function netOnPersist(){
@@ -4111,7 +4148,10 @@ function netLeaveRoom(silent){
     }catch(e){}
   }
   try{ chatStopRoom(); }catch(e){}
+  try{ reactStop(); }catch(e){}
   NET.on=false; NET.status='idle'; NET.roomRef=null; NET.code=null; NET.isHost=false; NET.seats={}; NET.mySeat=null;
+  NET.botDirs={}; NET.forceAI=null; NET._ttKey=null; NET._wKey=null;
+  try{ netClearTurnTimer(); netClearWatch(); if(NET.lobbyBotTimer){ clearInterval(NET.lobbyBotTimer); NET.lobbyBotTimer=null; } }catch(e){}
   ROOM_COS=null; try{ applyDiceSkin(); }catch(e){}
   var lb=document.getElementById('onlineLobby'); if(lb) lb.style.display='none';
   var hm=document.getElementById('onlineHome'); if(hm) hm.style.display='block';
@@ -4128,10 +4168,111 @@ function netLeaveRoom(silent){
   var lv=q('leaveRoomBtn'); if(lv) lv.addEventListener('click', function(){ netLeaveRoom(); });
   var cp=q('copyCodeBtn'); if(cp) cp.addEventListener('click', function(){ try{ navigator.clipboard.writeText(NET.code); cp.textContent='✓ Скопировано'; setTimeout(function(){ cp.textContent='📋 Скопировать код'; },1500); }catch(e){} });
   var ji=q('joinCodeInput'); if(ji) ji.addEventListener('input', function(){ ji.value=ji.value.toUpperCase(); });
+  var ps=q('onlinePrivSeg'); if(ps) ps.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; Array.prototype.forEach.call(ps.querySelectorAll('button'),function(x){ x.classList.toggle('active', x===b); }); NET_PUBLIC=(b.dataset.p!=='1'); });
 })();
 
+/* ==================== ФАЗА 7: ПРИВАТНЫЕ ЛОББИ / БОТЫ / ТАЙМЕР ==================== */
+function netCanDrive(){
+  if(!NET.on) return true;
+  var p=players[currentIdx]; if(!p) return false;
+  if(NET.seats[p.dir]===NET.myId) return true;
+  if(NET.isHost && NET.botDirs && NET.botDirs[p.dir]) return true;
+  if(NET.isHost && NET.forceAI && NET.forceAI===p.dir) return true;
+  return false;
+}
+function netManageBotFill(room, filled, total){
+  if(!NET.isHost){ lobbyMsg('Ждём, когда хост начнёт…'); return; }
+  if(NET.status!=='lobby'){ return; }
+  if(filled>=total){ if(NET.lobbyBotTimer){ clearInterval(NET.lobbyBotTimer); NET.lobbyBotTimer=null; } lobbyMsg('Все в сборе — можно начинать!'); return; }
+  if(!NET.lobbyBotTimer){
+    NET.botFillAt=Date.now()+30000;
+    NET.lobbyBotTimer=setInterval(function(){
+      if(NET.status!=='lobby' || !NET.roomRef){ clearInterval(NET.lobbyBotTimer); NET.lobbyBotTimer=null; return; }
+      var left=Math.ceil((NET.botFillAt-Date.now())/1000);
+      if(left>0){ lobbyMsg('🤖 Пустые места займут боты через '+left+' с (или начни сам).'); return; }
+      clearInterval(NET.lobbyBotTimer); NET.lobbyBotTimer=null;
+      netFillBotsAndStart();
+    }, 500);
+  }
+}
+function netFillBotsAndStart(){
+  if(!NET.isHost || !NET.roomRef) return;
+  var seatDirs=ONLINE_DIRS.slice(0, NET.count);
+  var botNames=['Бот-Нео','Бот-Рекс','Бот-Ася','Бот-Макс'];
+  var updates={}; var bi=0;
+  seatDirs.forEach(function(d){
+    if(!(NET.seatsMeta&&NET.seatsMeta[d])){
+      updates['seats/'+d]={ uid:'BOT_'+d, name:botNames[bi%botNames.length], avatar:'🤖', bot:true };
+      bi++;
+    }
+  });
+  lobbyMsg('Добавляю ботов…');
+  NET.roomRef.update(updates).then(function(){
+    NET.roomRef.child('status').set('playing');
+  }).catch(function(e){ lobbyMsg('Ошибка ботов: '+e.message); });
+}
+function netTimerBadge(){
+  var el=document.getElementById('turnTimerBadge');
+  if(!el){ el=document.createElement('div'); el.id='turnTimerBadge'; el.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9000;background:rgba(11,21,36,.92);border:1px solid #2a3b52;border-radius:20px;padding:5px 14px;font-weight:800;font-size:14px;color:#eaf3ff;pointer-events:none;'; document.body.appendChild(el); }
+  return el;
+}
+function netClearTurnTimer(){ if(NET.turnTimer){ clearInterval(NET.turnTimer); NET.turnTimer=null; } var el=document.getElementById('turnTimerBadge'); if(el) el.style.display='none'; }
+function netStartTurnTimer(){
+  if(!NET.on || gameOver){ netClearTurnTimer(); return; }
+  var p=players[currentIdx]; if(!p){ netClearTurnTimer(); return; }
+  var key=currentIdx+'/'+(NET.seq||0);
+  if(!netMyTurn() || (NET.botDirs&&NET.botDirs[p.dir])){ netClearTurnTimer(); NET._ttKey=key; return; }
+  if(NET._ttKey===key) return;
+  netClearTurnTimer();
+  NET._ttKey=key;
+  NET.turnDeadline=Date.now()+30000;
+  var badge=netTimerBadge();
+  NET.turnTimer=setInterval(function(){
+    if(!NET.on||gameOver||!netMyTurn()){ netClearTurnTimer(); return; }
+    var left=Math.ceil((NET.turnDeadline-Date.now())/1000);
+    if(left<=0){ netClearTurnTimer(); netAutoPlayMyTurn(); return; }
+    badge.style.display='block'; badge.textContent='⏱ '+left+' с'; badge.style.color=left<=5?'#ff6a6a':'#eaf3ff';
+  },250);
+}
+function netAutoPlayMyTurn(){
+  try{
+    if(mustPickPiece){
+      var mv=computeMovable();
+      if(mv&&mv.length){ var ch=aiChoose(); if(ch&&ch.act){ commitMove(ch.i,ch.act); return; } var acts=getActions(mover(), mv[0]); if(acts&&acts.length){ commitMove(mv[0], acts[0]); return; } }
+      nextTurn(diceValue===6); afterTurnAdvance(); return;
+    }
+    if(!rolling){ rollDice(); }
+  }catch(e){}
+}
+function netClearWatch(){ if(NET.hostWatch){ clearInterval(NET.hostWatch); NET.hostWatch=null; } }
+function netStartWatch(){
+  if(!NET.on||!NET.isHost||gameOver){ netClearWatch(); return; }
+  var p=players[currentIdx]; if(!p){ netClearWatch(); return; }
+  var key=currentIdx+'/'+(NET.seq||0); var dir=p.dir;
+  if(NET.seats[dir]===NET.myId || (NET.botDirs&&NET.botDirs[dir])){ netClearWatch(); NET._wKey=key; return; }
+  if(NET._wKey===key) return;
+  netClearWatch();
+  NET._wKey=key;
+  NET.watchAt=Date.now()+45000;
+  NET.hostWatch=setInterval(function(){
+    if(!NET.on||!NET.isHost||gameOver){ netClearWatch(); return; }
+    var cp=players[currentIdx]; var ck=currentIdx+'/'+(NET.seq||0);
+    if(!cp||cp.dir!==dir||ck!==key){ netClearWatch(); return; }
+    if(Date.now()>=NET.watchAt){
+      netClearWatch();
+      NET.forceAI=dir;
+      try{
+        if(!rolling && !mustPickPiece){ rollDice(); }
+        else if(mustPickPiece){ var ch=aiChoose(); if(ch&&ch.act) commitMove(ch.i,ch.act); else { nextTurn(diceValue===6); afterTurnAdvance(); } }
+      }catch(e){}
+      setTimeout(function(){ if(NET.forceAI===dir) NET.forceAI=null; }, 5000);
+    }
+  },1000);
+}
+
+
 /* ==================== ПРОФИЛЬ + АВТОРИЗАЦИЯ (Firebase Auth) ==================== */
-var PROF = { uid:null, nick:null, avatar:'🐵', coins:0, games:0, wins:0, points:0, lastDaily:null, isGoogle:false, ready:false, createdAt:null, _dailyJustGiven:false };
+var PROF = { uid:null, nick:null, avatar:'🐵', coins:0, games:0, wins:0, points:0, lastDaily:null, xp:0, ach:{}, streak:0, bestStreak:0, lastLogin:null, seasonId:null, seasonPoints:0, title:null, frame:null, isGoogle:false, ready:false, createdAt:null, _dailyJustGiven:false };
 var DAILY_BONUS = 50;
 var START_COINS = 100;
 var PROF_AVATARS = ['🐵','🦊','🐼','🐸','🐧','🦄','🐲','🦁','🐯','🐨','🐷','🐹','🦉','🐺','🦖','🐙','🦈','🐳','🦋','🌟','👑','🤖','👻','🎃'];
@@ -4180,6 +4321,7 @@ function profOnSignedIn(user){
       PROF.owned=Array.isArray(d.owned)?d.owned:OWN_DEFAULT.slice();
       PROF.cos=(d.cos&&typeof d.cos==='object')?d.cos:{piece:'p_default',dice:'d_default',board:'b_default'};
       PROF.createdAt=d.createdAt||null;
+      PROF.xp=d.xp||0; PROF.ach=(d.ach&&typeof d.ach==='object')?d.ach:{}; PROF.streak=d.streak||0; PROF.bestStreak=d.bestStreak||0; PROF.lastLogin=d.lastLogin||null; PROF.seasonId=d.seasonId||null; PROF.seasonPoints=d.seasonPoints||0; PROF.title=d.title||null; PROF.frame=d.frame||null;
     } else {
       PROF.nick=profDefaultNick(user);
       PROF.avatar=PROF_AVATARS[Math.floor(Math.random()*PROF_AVATARS.length)];
@@ -4187,14 +4329,17 @@ function profOnSignedIn(user){
       PROF.owned=OWN_DEFAULT.slice();
       PROF.cos={piece:'p_default',dice:'d_default',board:'b_default'};
       PROF.createdAt=firebase.database.ServerValue.TIMESTAMP;
+      PROF.xp=0; PROF.ach={}; PROF.streak=0; PROF.bestStreak=0; PROF.lastLogin=null; PROF.seasonId=null; PROF.seasonPoints=0; PROF.title=null; PROF.frame=null;
     }
     PROF._dailyJustGiven=false;
     profCheckDaily();
+    try{ profCheckSeason(); }catch(e){}
     PROF.ready=true;
     profSave();
     profMsg('');
     profRender();
     try{ applyDiceSkin(); }catch(e){}
+    try{ achCheckAll(); }catch(e){}
   }).catch(function(e){ profMsg('Ошибка профиля: '+e.message); });
 }
 
@@ -4202,9 +4347,17 @@ function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+
 function profCheckDaily(){
   var t=todayStr();
   if(PROF.lastDaily!==t){
-    PROF.coins=(PROF.coins||0)+DAILY_BONUS;
+    var y=yesterdayStr();
+    if(PROF.lastLogin===y) PROF.streak=(PROF.streak||0)+1;
+    else if(PROF.lastLogin!==t) PROF.streak=1;
+    PROF.lastLogin=t;
+    if((PROF.streak||0)>(PROF.bestStreak||0)) PROF.bestStreak=PROF.streak;
+    var bonus=DAILY_BONUS + Math.min(70, ((PROF.streak||1)-1)*10);
+    PROF.coins=(PROF.coins||0)+bonus;
+    PROF.xp=(PROF.xp||0)+15;
     PROF.lastDaily=t;
     PROF._dailyJustGiven=true;
+    PROF._dailyBonusAmt=bonus;
   }
 }
 
@@ -4216,7 +4369,9 @@ function profSave(){
       games:PROF.games, wins:PROF.wins, points:PROF.points,
       lastDaily:PROF.lastDaily,
       owned:PROF.owned||OWN_DEFAULT.slice(),
+      friends:PROF.friends||[],
       cos:PROF.cos||{piece:'p_default',dice:'d_default',board:'b_default'},
+      xp:PROF.xp||0, ach:PROF.ach||{}, streak:PROF.streak||0, bestStreak:PROF.bestStreak||0, lastLogin:PROF.lastLogin||null, seasonId:PROF.seasonId||null, seasonPoints:PROF.seasonPoints||0, title:PROF.title||null, frame:PROF.frame||null,
       createdAt:PROF.createdAt||firebase.database.ServerValue.TIMESTAMP,
       updatedAt:firebase.database.ServerValue.TIMESTAMP
     });
@@ -4282,16 +4437,21 @@ function profRender(){
   var set=function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
   set('profAvatar', PROF.avatar||'🐵');
   set('profNickView', PROF.nick||'—');
+  try{ applyProfCosmetics(); }catch(e){}
+  try{ friendsWire(); }catch(e){}
+  try{ friendsRender(); }catch(e){}
   set('profKind', PROF.isGoogle?'вход через Google':'гостевой профиль');
   set('statCoins', PROF.coins||0);
   set('statGames', PROF.games||0);
   set('statWins', PROF.wins||0);
   set('statPoints', PROF.points||0);
+  try{ var li=levelInfo(PROF.xp); var lb=document.getElementById('lvlBar'); if(lb) lb.style.width=li.pct+'%'; var ln=document.getElementById('lvlNum'); if(ln) ln.textContent=li.level; var lx=document.getElementById('lvlXp'); if(lx) lx.textContent=li.cur+'/'+li.need+' XP'; var sv=document.getElementById('streakView'); if(sv) sv.textContent='🔥 '+(PROF.streak||0)+' дн.'; }catch(e){}
   var ni=document.getElementById('profNickInput'); if(ni && document.activeElement!==ni) ni.value=PROF.nick||'';
   var daily=document.getElementById('profDaily');
-  if(daily){ if(PROF._dailyJustGiven){ daily.style.display='block'; var dt=document.getElementById('profDailyTxt'); if(dt) dt.textContent='+'+DAILY_BONUS+' монет за вход сегодня. Заходи каждый день!'; } else daily.style.display='none'; }
+  if(daily){ if(PROF._dailyJustGiven){ daily.style.display='block'; var dt=document.getElementById('profDailyTxt'); if(dt) dt.textContent='+'+(PROF._dailyBonusAmt||DAILY_BONUS)+' монет · серия '+(PROF.streak||0)+' 🔥 . Заходи каждый день!'; } else daily.style.display='none'; }
   try{ applyDiceSkin(); }catch(e){}
   try{ shopRender(); }catch(e){}
+  try{ achRender(); }catch(e){}
   profBuildAvatarGrid();
 }
 
@@ -4435,11 +4595,20 @@ function profAwardGameResult(){
   PROF.coins=(PROF.coins||0)+coins;
   PROF.games=(PROF.games||0)+1;
   if(placeIdx===0) PROF.wins=(PROF.wins||0)+1;
+  try{ profCheckSeason(); }catch(e){}
+  PROF.seasonPoints=(PROF.seasonPoints||0)+pts;
+  var _bl=levelInfo(PROF.xp).level;
+  var xpGain=20+pts*4+(placeIdx===0?40:0);
+  PROF.xp=(PROF.xp||0)+xpGain;
+  var _al=levelInfo(PROF.xp).level;
+  if(_al>_bl) PROF.coins=(PROF.coins||0)+_al*20;
   try{ profSave(); }catch(e){}
   try{ profRender(); }catch(e){}
-  try{ profFlashAward(placeIdx+1, pts, coins); }catch(e){}
+  try{ profFlashAward(placeIdx+1, pts, coins, xpGain); }catch(e){}
+  if(_al>_bl){ try{ levelUpToast(_al); }catch(e){} }
+  try{ achCheckAll(); }catch(e){}
 }
-function profFlashAward(place, pts, coins){
+function profFlashAward(place, pts, coins, xp){
   var ov=document.getElementById('winOverlay'); if(!ov) return;
   var wt=document.getElementById('winStatsAward');
   if(!wt){
@@ -4447,29 +4616,34 @@ function profFlashAward(place, pts, coins){
     wt.style.cssText='margin:10px auto;padding:8px 14px;border-radius:10px;background:#12351f;border:1px solid #1f7a3f;color:#5be08a;font-weight:800;max-width:280px;';
     var sb=document.getElementById('statsBox'); if(sb&&sb.parentNode) sb.parentNode.insertBefore(wt, sb); else ov.appendChild(wt);
   }
-  wt.textContent=place+' место · +'+pts+' ⭐ · +'+coins+' 💰';
+  wt.textContent=place+' место · +'+pts+' ⭐ · +'+coins+' 💰'+(xp?' · +'+xp+' XP':'');
   wt.style.display='block';
 }
+var LEADER_MODE='all';
 function netLoadLeaderboard(){
   var box=document.getElementById('leaderList'); if(!box) return;
   if(!PROF || !PROF.uid){ box.innerHTML='<div class="resume-info">Войди в профиль, чтобы видеть рейтинг</div>'; return; }
   if(!netInit()){ box.innerHTML='<div class="resume-info">⚠ Firebase не настроен</div>'; return; }
   box.innerHTML='<div class="resume-info">Загрузка…</div>';
-  _fbDb.ref('profiles').orderByChild('points').limitToLast(20).get().then(function(snap){
+  var _sm=(LEADER_MODE==='season'); var _ok=_sm?'seasonPoints':'points'; var _cs=currentSeason();
+  _fbDb.ref('profiles').orderByChild(_ok).limitToLast(40).get().then(function(snap){
     var arr=[];
-    snap.forEach(function(ch){ var p=ch.val()||{}; p._uid=ch.key; arr.push(p); });
-    arr.sort(function(a,b){ return (b.points||0)-(a.points||0); });
-    if(!arr.length){ box.innerHTML='<div class="resume-info">Пока пусто. Сыграй онлайн-партию!</div>'; return; }
+    snap.forEach(function(ch){ var p=ch.val()||{}; p._uid=ch.key; if(!_sm || p.seasonId===_cs) arr.push(p); });
+    arr.sort(function(a,b){ return ((_sm?b.seasonPoints:b.points)||0)-((_sm?a.seasonPoints:a.points)||0); });
+    arr=arr.slice(0,20);
+    if(!arr.length){ box.innerHTML='<div class="resume-info">'+(_sm?'В этом сезоне пока пусто.':'Пока пусто. Сыграй онлайн-партию!')+'</div>'; return; }
     box.innerHTML='';
     arr.forEach(function(p, idx){
       var mine=(p._uid===PROF.uid);
       var medal=(idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':(idx+1)+'.');
       var row=document.createElement('div'); row.className='slot-row';
       if(mine) row.style.background='#1a2c1f';
+      var _tt=''; try{ var _ti=shopItem(p.cos&&p.cos.title); if(_ti&&_ti.title) _tt=' <span style="font-size:9px;color:#c9a3ff;border:1px solid #46407a;border-radius:6px;padding:0 4px;">'+netEsc(_ti.title)+'</span>'; }catch(e){}
+      var _fr=''; try{ var _fi=shopItem(p.cos&&p.cos.frame); if(_fi&&_fi.frame) _fr='border:2px solid '+_fi.frame.border+';border-radius:50%;padding:1px;'; }catch(e){}
       row.innerHTML='<div class="slot-name"><span style="width:26px;display:inline-block;text-align:center;">'+medal+'</span> '
-        +'<span style="font-size:20px;">'+netEsc(p.avatar||'🙂')+'</span> '
-        +'<b style="color:'+(mine?'#ffd54a':'#eaf3ff')+';">'+netEsc(p.nick||'Игрок')+'</b></div>'
-        +'<div style="color:#7cc0ff;font-weight:800;">'+(p.points||0)+' ⭐</div>';
+        +'<span style="font-size:20px;'+_fr+'">'+netEsc(p.avatar||'🙂')+'</span> '
+        +'<b style="color:'+(mine?'#ffd54a':'#eaf3ff')+';">'+netEsc(p.nick||'Игрок')+'</b>'+_tt+' <span style="font-size:10px;color:#8aa0b8;">ур.'+(levelInfo(p.xp).level)+'</span></div>'
+        +'<div style="color:#7cc0ff;font-weight:800;">'+((_sm?p.seasonPoints:p.points)||0)+' ⭐</div>';
       box.appendChild(row);
     });
   }).catch(function(e){
@@ -4481,7 +4655,87 @@ function netLoadLeaderboard(){
 (function wireLeader(){
   var rb=document.getElementById('refreshLeaderBtn');
   if(rb) rb.addEventListener('click', netLoadLeaderboard);
+  var seg=document.getElementById('leaderSeg');
+  if(seg) seg.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; Array.prototype.forEach.call(seg.querySelectorAll('button'),function(x){ x.classList.toggle('active', x===b); }); LEADER_MODE=b.dataset.m; netLoadLeaderboard(); });
 })();
+
+
+/* ==================== ФАЗА 8: УРОВНИ / ДОСТИЖЕНИЯ / СЕЗОН / СЕРИЯ ==================== */
+function yesterdayStr(){ var d=new Date(); d.setDate(d.getDate()-1); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function currentSeason(){ var d=new Date(); var m=d.getMonth()+1; return d.getFullYear()+'-'+(m<10?'0':'')+m; }
+function profCheckSeason(){ var s=currentSeason(); if(PROF.seasonId!==s){ PROF.seasonId=s; PROF.seasonPoints=0; } }
+function xpNeededFor(level){ return 100 + (level-1)*60; }
+function levelInfo(xp){ xp=xp||0; var lvl=1, rem=xp, need=xpNeededFor(1); while(rem>=need && lvl<999){ rem-=need; lvl++; need=xpNeededFor(lvl); } return { level:lvl, cur:rem, need:need, pct:Math.max(0,Math.min(100,Math.round(rem/need*100))) }; }
+function levelUpToast(lvl){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;left:50%;top:16%;transform:translateX(-50%);z-index:9500;background:linear-gradient(135deg,#2a1c4a,#12213a);border:1px solid #b06bff;border-radius:14px;padding:12px 20px;box-shadow:0 8px 30px rgba(0,0,0,.5);color:#eaf3ff;text-align:center;';
+  t.innerHTML='<div style="font-size:12px;color:#c9a3ff;letter-spacing:1px;">НОВЫЙ УРОВЕНЬ</div><div style="font-size:34px;font-weight:900;color:#ffd54a;">'+lvl+'</div><div style="font-size:12px;color:#9db4cf;">+'+(lvl*20)+' 💰 бонус</div>';
+  document.body.appendChild(t);
+  try{ if(window.Sound&&Sound.win) Sound.win(); }catch(e){}
+  setTimeout(function(){ t.style.transition='opacity .5s,transform .5s'; t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(-24px)'; setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 500); }, 3000);
+}
+var ACHIEVEMENTS=[
+  {id:'first_game', icon:'🎲', name:'Первый ход', desc:'Сыграй первую онлайн-партию', coins:30},
+  {id:'first_win', icon:'🥇', name:'Дебютная победа', desc:'Выиграй первую партию', coins:50},
+  {id:'win10', icon:'🏆', name:'Чемпион', desc:'10 побед', coins:150},
+  {id:'games25', icon:'🎯', name:'Завсегдатай', desc:'25 партий', coins:120},
+  {id:'points100', icon:'⭐', name:'Сотка', desc:'100 очков рейтинга', coins:80},
+  {id:'points500', icon:'🌟', name:'Легенда', desc:'500 очков рейтинга', coins:300},
+  {id:'level5', icon:'📈', name:'Опытный', desc:'Достигни 5 уровня', coins:100},
+  {id:'level10', icon:'🚀', name:'Мастер', desc:'Достигни 10 уровня', coins:250},
+  {id:'streak3', icon:'🔥', name:'В деле', desc:'3 дня подряд', coins:60},
+  {id:'streak7', icon:'💥', name:'Неделя огня', desc:'7 дней подряд', coins:200},
+  {id:'shopaholic', icon:'🛍', name:'Модник', desc:'Купи 3 предмета в магазине', coins:80},
+  {id:'rich', icon:'💰', name:'Богач', desc:'Накопи 1000 монет', coins:100}
+];
+function achUnlocked(id){ return !!(PROF.ach && PROF.ach[id]); }
+function achUnlock(id){
+  if(!PROF||!PROF.uid || achUnlocked(id)) return;
+  var a=null; for(var i=0;i<ACHIEVEMENTS.length;i++){ if(ACHIEVEMENTS[i].id===id){ a=ACHIEVEMENTS[i]; break; } }
+  if(!a) return;
+  if(!PROF.ach) PROF.ach={};
+  PROF.ach[id]=true;
+  if(a.coins) PROF.coins=(PROF.coins||0)+a.coins;
+  PROF.xp=(PROF.xp||0)+30;
+  try{ achToast(a); }catch(e){}
+  try{ profSave(); }catch(e){}
+  try{ profRender(); }catch(e){}
+}
+function achCheckAll(){
+  if(!PROF||!PROF.uid) return;
+  if((PROF.games||0)>=1) achUnlock('first_game');
+  if((PROF.wins||0)>=1) achUnlock('first_win');
+  if((PROF.wins||0)>=10) achUnlock('win10');
+  if((PROF.games||0)>=25) achUnlock('games25');
+  if((PROF.points||0)>=100) achUnlock('points100');
+  if((PROF.points||0)>=500) achUnlock('points500');
+  var li=levelInfo(PROF.xp); if(li.level>=5) achUnlock('level5'); if(li.level>=10) achUnlock('level10');
+  if((PROF.streak||0)>=3) achUnlock('streak3');
+  if((PROF.streak||0)>=7) achUnlock('streak7');
+  try{ if(profOwned().length>=6) achUnlock('shopaholic'); }catch(e){}
+  if((PROF.coins||0)>=1000) achUnlock('rich');
+}
+function achToast(a){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:9500;background:linear-gradient(135deg,#1c2f4a,#12213a);border:1px solid #ffd54a;border-radius:14px;padding:12px 18px;box-shadow:0 8px 30px rgba(0,0,0,.5);color:#eaf3ff;text-align:center;max-width:300px;';
+  t.innerHTML='<div style="font-size:12px;color:#ffd54a;letter-spacing:1px;">🏅 ДОСТИЖЕНИЕ</div><div style="font-size:26px;margin:2px 0;">'+a.icon+'</div><div style="font-weight:900;">'+a.name+'</div><div style="font-size:12px;color:#9db4cf;">'+a.desc+(a.coins?' · +'+a.coins+' 💰':'')+'</div>';
+  document.body.appendChild(t);
+  try{ if(window.Sound&&Sound.buy) Sound.buy(); }catch(e){}
+  setTimeout(function(){ t.style.transition='opacity .5s,transform .5s'; t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(-20px)'; setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 500); }, 3200);
+}
+function achRender(){
+  var box=document.getElementById('achGrid'); if(!box) return;
+  box.innerHTML=''; var unlocked=0;
+  ACHIEVEMENTS.forEach(function(a){
+    var got=achUnlocked(a.id); if(got) unlocked++;
+    var d=document.createElement('div');
+    d.title=a.name+' — '+a.desc;
+    d.style.cssText='flex:0 0 auto;width:58px;text-align:center;opacity:'+(got?'1':'0.34')+';';
+    d.innerHTML='<div style="font-size:26px;filter:'+(got?'none':'grayscale(1)')+';">'+a.icon+'</div><div style="font-size:9px;color:#9db4cf;line-height:1.1;margin-top:2px;">'+a.name+'</div>';
+    box.appendChild(d);
+  });
+  var cnt=document.getElementById('achCount'); if(cnt) cnt.textContent=unlocked+'/'+ACHIEVEMENTS.length;
+}
 
 /* ==================== МАГАЗИН КОСМЕТИКИ ==================== */
 var COSMETIC_BY_DIR={};
@@ -4502,20 +4756,36 @@ var SHOP_ITEMS=[
   {id:'b_sunset', type:'board', name:'Закат', price:150, board:'#2a1230'},
   {id:'b_forest', type:'board', name:'Лес', price:150, board:'#0d2417'},
   {id:'b_ocean', type:'board', name:'Океан', price:150, board:'#08243a'},
-  {id:'b_royal', type:'board', name:'Роскошь', price:250, board:'#241a08'}
+  {id:'b_royal', type:'board', name:'Роскошь', price:250, board:'#241a08'},
+  {id:'p_rainbow', type:'piece', name:'Радуга', price:400, ph:'#ff5ea8', pd:'#7a2ea6', anim:'rainbow'},
+  {id:'p_glow', type:'piece', name:'Сияние', price:300, ph:'#8fe3ff', pd:'#1f6fa6', anim:'glow'},
+  {id:'p_sparkle', type:'piece', name:'Искры', price:350, ph:'#ffd54a', pd:'#a67c00', anim:'sparkle'},
+  {id:'p_orbit', type:'piece', name:'Орбита', price:350, ph:'#b06bff', pd:'#5a1fa6', anim:'orbit'},
+  {id:'d_emoji', type:'dice', name:'Эмодзи', price:240, dice:{l:'#fff7d6',c:'#ffe08a',d:'#c79a2e'}, faces:['🍀','🎲','⚽','⭐','💎','👑']},
+  {id:'d_animal', type:'dice', name:'Зверята', price:240, dice:{l:'#ffe6f0',c:'#ff9ec4',d:'#c65a8a'}, faces:['🐵','🦊','🐼','🐯','🦁','🐲']},
+  {id:'f_none', type:'frame', name:'Без рамки', price:0, frame:null},
+  {id:'f_gold', type:'frame', name:'Золотая', price:200, frame:{border:'#ffd54a', glow:'#ffd54a'}},
+  {id:'f_neon', type:'frame', name:'Неон', price:200, frame:{border:'#39ff14', glow:'#39ff14'}},
+  {id:'f_flame', type:'frame', name:'Пламя', price:250, frame:{border:'#ff6a2b', glow:'#ff6a2b'}},
+  {id:'f_royal', type:'frame', name:'Корона', price:300, frame:{border:'#b06bff', glow:'#b06bff'}},
+  {id:'t_none', type:'title', name:'Без титула', price:0, title:null},
+  {id:'t_rookie', type:'title', name:'Новобранец', price:100, title:'Новобранец'},
+  {id:'t_pro', type:'title', name:'Профи', price:200, title:'Профи'},
+  {id:'t_legend', type:'title', name:'Легенда', price:400, title:'Легенда'},
+  {id:'t_king', type:'title', name:'Король Мандашни', price:600, title:'Король Мандашни'}
 ];
-var COS_DEFAULT={piece:'p_default',dice:'d_default',board:'b_default'};
-var OWN_DEFAULT=['p_default','d_default','b_default'];
+var COS_DEFAULT={piece:'p_default',dice:'d_default',board:'b_default',frame:'f_none',title:'t_none'};
+var OWN_DEFAULT=['p_default','d_default','b_default','f_none','t_none'];
 function shopItem(id){ for(var i=0;i<SHOP_ITEMS.length;i++){ if(SHOP_ITEMS[i].id===id) return SHOP_ITEMS[i]; } return null; }
 function profOwned(){ if(!PROF.owned || !PROF.owned.length){ PROF.owned=OWN_DEFAULT.slice(); } return PROF.owned; }
-function profCos(){ if(!PROF.cos || typeof PROF.cos!=='object'){ PROF.cos={piece:'p_default',dice:'d_default',board:'b_default'}; } if(!PROF.cos.piece) PROF.cos.piece='p_default'; if(!PROF.cos.dice) PROF.cos.dice='d_default'; if(!PROF.cos.board) PROF.cos.board='b_default'; return PROF.cos; }
+function profCos(){ if(!PROF.cos || typeof PROF.cos!=='object'){ PROF.cos={piece:'p_default',dice:'d_default',board:'b_default',frame:'f_none',title:'t_none'}; } if(!PROF.cos.piece) PROF.cos.piece='p_default'; if(!PROF.cos.dice) PROF.cos.dice='d_default'; if(!PROF.cos.board) PROF.cos.board='b_default'; if(!PROF.cos.frame) PROF.cos.frame='f_none'; if(!PROF.cos.title) PROF.cos.title='t_none'; return PROF.cos; }
 function profCosDice(){ var it=shopItem(profCos().dice); return (it&&it.dice)?it.dice:null; }
 function profCosBoard(){ var it=shopItem(profCos().board); return (it&&it.board)?it.board:null; }
-function profCosPieceBroadcast(){ var it=shopItem(profCos().piece); if(it&&it.ph) return {ph:it.ph, pd:it.pd||it.ph}; return null; }
-function hostCosBroadcast(){ var o={}; var b=profCosBoard(); if(b) o.boardBg=b; var dc=profCosDice(); if(dc) o.dice=dc; return o; }
+function profCosPieceBroadcast(){ var it=shopItem(profCos().piece); if(it&&it.ph){ var o={ph:it.ph, pd:it.pd||it.ph}; if(it.anim) o.anim=it.anim; return o; } return null; }
+function hostCosBroadcast(){ var o={}; var b=profCosBoard(); if(b) o.boardBg=b; var dc=profCosDice(); if(dc) o.dice=dc; var di=shopItem(profCos().dice); o.diceId=profCos().dice; if(di&&di.faces) o.diceFaces=di.faces; return o; }
 function pieceColorFor(dir){
   var c=COLOR[dir];
-  try{ if(NET.on){ var m=COSMETIC_BY_DIR||{}; var o=m[dir]; if(o&&o.ph) return {hex:o.ph, dark:o.pd||o.ph, icon:c.icon, name:c.name}; } }catch(e){}
+  try{ if(NET.on){ var m=COSMETIC_BY_DIR||{}; var o=m[dir]; if(o&&o.ph) return {hex:o.ph, dark:o.pd||o.ph, icon:c.icon, name:c.name, anim:o.anim||null}; } }catch(e){}
   return c;
 }
 function boardBgColor(){ try{ if(NET.on){ if(ROOM_COS && ROOM_COS.boardBg) return ROOM_COS.boardBg; return TH().boardBg; } var b=profCosBoard(); if(b) return b; }catch(e){} return TH().boardBg; }
@@ -4526,6 +4796,7 @@ function applyDiceSkin(){
     if(v){ root.style.setProperty('--dcol', v.c); root.style.setProperty('--dcol-l', v.l); root.style.setProperty('--dcol-d', v.d); }
     else { root.style.removeProperty('--dcol'); root.style.removeProperty('--dcol-l'); root.style.removeProperty('--dcol-d'); }
   }catch(e){}
+  try{ rebuildDiceFaces(); }catch(e){}
 }
 function profShopMsg(t){ var e=document.getElementById('shopMsg'); if(e) e.textContent=t||''; }
 function shopBuy(id){
@@ -4551,16 +4822,18 @@ function shopEquip(id){
   try{ if(typeof draw==='function' && !gameOver) draw(); }catch(e){}
 }
 function shopPreview(it){
-  if(it.type==='piece'){ var h=it.ph||COLOR.top.hex; var d=it.pd||COLOR.top.dark; return '<div style="width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #fff, '+h+' 55%, '+d+');border:1px solid '+d+';"></div>'; }
-  if(it.type==='dice'){ var c=it.dice?it.dice.c:'#e8eef5'; var l=it.dice?it.dice.l:'#ffffff'; var dd=it.dice?it.dice.d:'#c7d2de'; return '<div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(140deg,'+l+','+c+' 58%,'+dd+');border:1px solid rgba(0,0,0,.3);"></div>'; }
+  if(it.type==='piece'){ var h=it.ph||COLOR.top.hex; var d=it.pd||COLOR.top.dark; var cls=it.anim?(' shop-anim-'+it.anim):''; return '<div class="shop-piece-prev'+cls+'" style="width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 35%, #fff, '+h+' 55%, '+d+');border:1px solid '+d+';"></div>'; }
+  if(it.type==='dice'){ if(it.faces){ return '<div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(140deg,'+it.dice.l+','+it.dice.c+' 58%,'+it.dice.d+');border:1px solid rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:15px;">'+it.faces[0]+'</div>'; } var c=it.dice?it.dice.c:'#e8eef5'; var l=it.dice?it.dice.l:'#ffffff'; var dd=it.dice?it.dice.d:'#c7d2de'; return '<div style="width:26px;height:26px;border-radius:6px;background:linear-gradient(140deg,'+l+','+c+' 58%,'+dd+');border:1px solid rgba(0,0,0,.3);"></div>'; }
   if(it.type==='board'){ var b=it.board||'#0c1c30'; return '<div style="width:34px;height:26px;border-radius:5px;background:'+b+';border:1px solid #2a3b52;"></div>'; }
+  if(it.type==='frame'){ var st=it.frame?('border:3px solid '+it.frame.border+';box-shadow:0 0 8px '+it.frame.glow):'border:2px dashed #46586f'; return '<div style="width:30px;height:30px;border-radius:50%;'+st+';display:flex;align-items:center;justify-content:center;font-size:15px;">\ud83d\ude42</div>'; }
+  if(it.type==='title'){ var tt=it.title||'\u2014'; return '<div style="font-size:9px;font-weight:800;color:#ffd54a;padding:2px 5px;border:1px solid #46586f;border-radius:8px;line-height:1.2;">'+tt+'</div>'; }
   return '';
 }
 function shopRender(){
   var grid=document.getElementById('shopGrid'); if(!grid) return;
   if(!PROF || !PROF.uid){ grid.innerHTML=''; return; }
   var owned=profOwned(), cos=profCos();
-  var groups=[['piece','🎯 Фишки'],['dice','🎲 Кубик'],['board','🗺 Поле']];
+  var groups=[['piece','🎯 Фишки'],['dice','🎲 Кубик'],['board','🗺 Поле'],['frame','🖼 Рамки'],['title','🏷 Титулы']];
   var html='';
   groups.forEach(function(gr){
     html+='<div style="font-size:12px;color:#9fb4cc;margin:8px 0 4px;font-weight:700;">'+gr[1]+'</div>';
@@ -4593,6 +4866,130 @@ function shopFlash(txt){
     setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 950);
   }catch(e){}
 }
+
+/* ==================== ФАЗА 9: АНИМ-СКИНЫ / РАМКИ / ТИТУЛЫ / ГРАНИ / ДРУЗЬЯ / РЕАКЦИИ ==================== */
+function currentDiceItem(){
+  try{ if(NET.on){ if(ROOM_COS && ROOM_COS.diceId) return shopItem(ROOM_COS.diceId); return null; } return shopItem(profCos().dice); }catch(e){ return null; }
+}
+function rebuildDiceFaces(){
+  try{
+    var faces=null;
+    if(NET.on){ if(ROOM_COS && ROOM_COS.diceFaces) faces=ROOM_COS.diceFaces; }
+    else { var it=currentDiceItem(); if(it&&it.faces) faces=it.faces; }
+    var list=document.querySelectorAll('.dice-face'); if(!list||!list.length) return;
+    Array.prototype.forEach.call(list, function(faceEl){
+      var val=FACE_VALUE[faceEl.dataset.face];
+      faceEl.innerHTML='';
+      if(faces){
+        faceEl.classList.add('emoji-face');
+        var sp=document.createElement('span'); sp.className='dice-emoji'; sp.textContent=faces[val-1]||''; faceEl.appendChild(sp);
+      } else {
+        faceEl.classList.remove('emoji-face');
+        for(var k=0;k<9;k++){ var i=document.createElement('i'); if(PIP_MAP[val].includes(k)) i.classList.add('on'); faceEl.appendChild(i); }
+      }
+    });
+  }catch(e){}
+}
+function titleTextFor(id){ var it=shopItem(id); return (it&&it.title)?it.title:''; }
+function applyProfCosmetics(){
+  try{
+    var cos=profCos();
+    var av=document.getElementById('profAvatar');
+    if(av){ var it=shopItem(cos.frame); if(it&&it.frame){ av.style.border='3px solid '+it.frame.border; av.style.boxShadow='0 0 12px '+it.frame.glow; av.style.borderRadius='50%'; av.style.padding='3px'; av.style.display='inline-block'; } else { av.style.border=''; av.style.boxShadow=''; av.style.padding=''; } }
+    var tt=document.getElementById('profTitle');
+    if(tt){ var t=titleTextFor(cos.title); if(t){ tt.textContent='\ud83c\udff7 '+t; tt.style.display='inline-block'; } else { tt.textContent=''; tt.style.display='none'; } }
+  }catch(e){}
+}
+/* ---- РЕАКЦИИ ---- */
+var REACT_EMOJIS=['\ud83d\udc4d','\ud83d\ude02','\ud83d\ude2e','\ud83d\ude22','\ud83d\ude21','\ud83d\udd25','\u2764\ufe0f','\ud83c\udf89'];
+var _reactSince=0, _reactRef=null, _reactLast=0;
+function reactUI(show){ try{ var t=document.getElementById('reactToggle'); if(t) t.style.display=show?'flex':'none'; var b=document.getElementById('reactBar'); if(b&&!show) b.style.display='none'; }catch(e){} }
+function reactStart(){
+  try{
+    reactStop();
+    if(!NET.roomRef) return;
+    _reactSince=Date.now()-1500;
+    _reactRef=NET.roomRef.child('react');
+    _reactRef.limitToLast(8).on('child_added', function(snap){
+      try{ var m=snap.val()||{}; var ts=(typeof m.ts==='number')?m.ts:Date.now(); if(ts < _reactSince) return; reactShow(m); }catch(e){}
+    });
+    reactUI(true);
+  }catch(e){}
+}
+function reactStop(){ try{ if(_reactRef){ _reactRef.off(); _reactRef=null; } }catch(e){} reactUI(false); }
+function reactSend(emoji){
+  try{
+    if(!NET.on || !NET.roomRef) return;
+    var now=Date.now(); if(now-_reactLast<1200) return; _reactLast=now;
+    NET.roomRef.child('react').push({ uid:NET.myId, dir:NET.mySeat||'', emoji:emoji, name:(typeof profNick==='function'?(profNick()||''):''), ts: firebase.database.ServerValue.TIMESTAMP });
+    try{ if(typeof Haptic!=='undefined' && Haptic.light) Haptic.light(); }catch(e){}
+  }catch(e){}
+}
+function reactShow(m){
+  try{
+    var emoji=m.emoji||'\ud83d\udc4d'; var who=m.name||'';
+    var t=document.createElement('div');
+    t.textContent=emoji+(who?(' '+who):'');
+    t.style.cssText='position:fixed;left:50%;bottom:120px;transform:translateX(-50%) scale(.6);z-index:9400;font-size:28px;background:rgba(10,18,30,.85);border:1px solid #2a3b52;border-radius:20px;padding:6px 14px;color:#eaf3ff;pointer-events:none;transition:all 1.1s cubic-bezier(.2,.9,.3,1);opacity:1;white-space:nowrap;';
+    document.body.appendChild(t);
+    requestAnimationFrame(function(){ t.style.bottom='220px'; t.style.opacity='0'; t.style.transform='translateX(-50%) scale(1.3)'; });
+    setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 1150);
+  }catch(e){}
+}
+function reactBarInit(){
+  try{
+    var bar=document.getElementById('reactBar'); if(bar && !bar._wired){ bar._wired=true;
+      var html=''; REACT_EMOJIS.forEach(function(e){ html+='<button class="react-em" data-e="'+e+'">'+e+'</button>'; });
+      bar.innerHTML=html;
+      Array.prototype.forEach.call(bar.querySelectorAll('.react-em'), function(b){ b.addEventListener('click', function(){ reactSend(b.getAttribute('data-e')); }); });
+    }
+    var tog=document.getElementById('reactToggle'); if(tog && !tog._wired){ tog._wired=true; tog.addEventListener('click', function(){ var b=document.getElementById('reactBar'); if(b) b.style.display=(b.style.display==='none'||!b.style.display)?'flex':'none'; }); }
+  }catch(e){}
+}
+/* ---- ДРУЗЬЯ ---- */
+function profFriends(){ if(!PROF.friends || !PROF.friends.length){ PROF.friends=PROF.friends||[]; } return PROF.friends; }
+function friendsRender(){
+  try{
+    var fc=document.getElementById('friendCode'); if(fc) fc.textContent=(PROF&&PROF.uid)?PROF.uid:'\u2014';
+    var list=document.getElementById('friendsList'); if(!list) return;
+    var fr=profFriends();
+    if(!fr.length){ list.innerHTML='<div style="font-size:12px;color:#6b7f96;">\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0434\u0440\u0443\u0437\u0435\u0439. \u0414\u043e\u0431\u0430\u0432\u044c \u043f\u043e \u043a\u043e\u0434\u0443 \u0432\u044b\u0448\u0435.</div>'; return; }
+    if(!netInit()){ list.innerHTML=''; return; }
+    list.innerHTML='';
+    fr.forEach(function(uid){
+      _fbDb.ref('profiles/'+uid).get().then(function(snap){
+        var p=snap.val();
+        var row=document.createElement('div'); row.className='slot-row';
+        if(p){ row.innerHTML='<div class="slot-name"><span style="font-size:20px;">'+netEsc(p.avatar||'\ud83d\ude42')+'</span> <b style="color:#eaf3ff;">'+netEsc(p.nick||'\u0418\u0433\u0440\u043e\u043a')+'</b> <span style="font-size:10px;color:#8aa0b8;">\u0443\u0440.'+(levelInfo(p.xp).level)+'</span></div>'; }
+        else { row.innerHTML='<div class="slot-name" style="color:#6b7f96;">'+netEsc(uid.slice(0,10))+'\u2026 (\u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d)</div>'; }
+        var rm=document.createElement('button'); rm.className='menu-btn warn'; rm.style.cssText='width:auto;padding:0 12px;font-size:12px;'; rm.textContent='\u2715';
+        rm.addEventListener('click', function(){ friendRemove(uid); });
+        row.appendChild(rm); list.appendChild(row);
+      }).catch(function(){});
+    });
+  }catch(e){}
+}
+function friendAdd(){
+  try{
+    var inp=document.getElementById('friendInput'); var uid=((inp&&inp.value)||'').trim();
+    var msg=document.getElementById('friendMsg');
+    if(!uid){ return; }
+    if(PROF&&uid===PROF.uid){ if(msg) msg.textContent='\u042d\u0442\u043e \u0442\u0432\u043e\u0439 \u0441\u043e\u0431\u0441\u0442\u0432\u0435\u043d\u043d\u044b\u0439 \u043a\u043e\u0434 \ud83d\ude42'; return; }
+    var fr=profFriends(); if(fr.indexOf(uid)>=0){ if(msg) msg.textContent='\u0423\u0436\u0435 \u0432 \u0434\u0440\u0443\u0437\u044c\u044f\u0445'; return; }
+    fr.push(uid); try{ profSave(); }catch(e){}
+    if(inp) inp.value=''; if(msg) msg.textContent='\u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d \u2713';
+    friendsRender();
+  }catch(e){}
+}
+function friendRemove(uid){ try{ var fr=profFriends(); var i=fr.indexOf(uid); if(i>=0){ fr.splice(i,1); try{ profSave(); }catch(e){} friendsRender(); } }catch(e){} }
+function friendsWire(){
+  try{
+    var b=document.getElementById('friendAddBtn'); if(b && !b._w){ b._w=true; b.addEventListener('click', friendAdd); }
+    var cp=document.getElementById('friendCode'); if(cp && !cp._w){ cp._w=true; cp.addEventListener('click', function(){ try{ navigator.clipboard.writeText(PROF.uid); var m=document.getElementById('friendMsg'); if(m) m.textContent='\u041a\u043e\u0434 \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d \u2713'; }catch(e){} }); }
+  }catch(e){}
+}
+(function phase9Init(){ try{ reactBarInit(); friendsWire(); rebuildDiceFaces(); reactUI(false); }catch(e){} })();
+
 
 
 

@@ -2,7 +2,7 @@
   "rules": {
     "profiles": {
       ".read": "auth != null",
-      ".indexOn": ["points"],
+      ".indexOn": ["points","seasonPoints"],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['nick','avatar'])",
