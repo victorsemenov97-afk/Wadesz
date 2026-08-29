@@ -1188,6 +1188,7 @@ function showScreen(name){
   document.getElementById('setup').style.display = (name === 'setup') ? 'flex' : 'none';
   document.getElementById('game').style.display = (name === 'game') ? 'flex' : 'none';
   var _on=document.getElementById('online'); if(_on) _on.style.display = (name === 'online') ? 'flex' : 'none';
+  var _pf=document.getElementById('profile'); if(_pf) _pf.style.display = (name === 'profile') ? 'flex' : 'none';
   if(name !== 'game') releaseWakeLock();
   try{ musicSync(); }catch(e){}
 }
@@ -1251,6 +1252,7 @@ document.querySelectorAll('[data-menu]').forEach(btn=>{
     else if(act === 'settings'){ syncSettingsUI(); openSheet('settingsSheet'); }
     else if(act === 'rules'){ openSheet('rulesSheet'); }
     else if(act === 'stats'){ renderStatsSheet(); openSheet('statsSheet'); }
+    else if(act === 'profile'){ showScreen('profile'); try{ profRender(); }catch(e){} }
     else if(act === 'online'){ netOpenHome(); showScreen('online'); }
     else if(act === 'credits'){ openSheet('creditsSheet'); }
     else if(act === 'exit'){ doExit(); }
@@ -3898,6 +3900,7 @@ function netInit(){
   }catch(e){ console.error('Firebase init error', e); return false; }
 }
 function netUid(){
+  try{ if(typeof PROF!=='undefined' && PROF.uid) return PROF.uid; }catch(e){}
   var id=null;
   try{ id=localStorage.getItem('mandashnya_uid'); }catch(e){}
   if(!id){ id='u'+Math.random().toString(36).slice(2,10); try{ localStorage.setItem('mandashnya_uid', id); }catch(e){} }
@@ -3915,13 +3918,14 @@ function netOpenHome(){
 }
 
 function netCreateRoom(){
+  if(!PROF||!PROF.uid){ onlineMsg('Сначала войди в профиль (кнопка «Профиль» в меню)'); return; }
   if(!netInit()){ onlineMsg('⚠ Firebase не настроен (см. firebase-config.js)'); return; }
   NET.myId = netUid();
   var code = genCode();
   var roomRef = _fbDb.ref('rooms/'+code);
   var seatDirs = ONLINE_DIRS.slice(0, NET.count);
   var seats = {};
-  seats[seatDirs[0]] = { uid: NET.myId, name:'Игрок 1' };
+  seats[seatDirs[0]] = { uid: NET.myId, name:(profNick()||'Игрок 1'), avatar:profAvatar() };
   onlineMsg('Создаю комнату…');
   roomRef.set({ host:NET.myId, count:NET.count, status:'lobby', createdAt: firebase.database.ServerValue.TIMESTAMP, seats:seats })
     .then(function(){ NET.code=code; NET.isHost=true; NET.roomRef=roomRef; NET.mySeat=seatDirs[0]; netEnterLobby(); })
@@ -3929,6 +3933,7 @@ function netCreateRoom(){
 }
 
 function netJoinRoom(){
+  if(!PROF||!PROF.uid){ onlineMsg('Сначала войди в профиль (кнопка «Профиль» в меню)'); return; }
   if(!netInit()){ onlineMsg('⚠ Firebase не настроен (см. firebase-config.js)'); return; }
   var inp=document.getElementById('joinCodeInput');
   var code=((inp&&inp.value)||'').trim().toUpperCase();
@@ -3945,8 +3950,8 @@ function netJoinRoom(){
     seatDirs.forEach(function(d){ if(room.seats&&room.seats[d]&&room.seats[d].uid===NET.myId) mySeat=d; });
     if(!mySeat){ mySeat=seatDirs.find(function(d){ return !(room.seats&&room.seats[d]); }); }
     if(!mySeat){ onlineMsg('В комнате нет свободных мест'); return; }
-    var name='Игрок '+(seatDirs.indexOf(mySeat)+1);
-    roomRef.child('seats/'+mySeat).set({ uid:NET.myId, name:name })
+    var name=(profNick()||('Игрок '+(seatDirs.indexOf(mySeat)+1)));
+    roomRef.child('seats/'+mySeat).set({ uid:NET.myId, name:name, avatar:profAvatar() })
       .then(function(){ NET.code=code; NET.isHost=(room.host===NET.myId); NET.roomRef=roomRef; NET.count=room.count; NET.mySeat=mySeat; netEnterLobby(); })
       .catch(function(e){ onlineMsg('Ошибка входа: '+e.message); });
   }).catch(function(e){ onlineMsg('Ошибка: '+e.message); });
@@ -3977,7 +3982,7 @@ function renderLobbySeats(room){
     var you=s&&s.uid===NET.myId; var isHost=s&&room.host===s.uid;
     var row=document.createElement('div'); row.className='slot-row';
     row.innerHTML='<div class="slot-name"><span class="swatch" style="background:'+col.hex+';color:'+col.hex+'"></span>'+col.icon+' '+col.name+'</div>'
-      +'<div style="font-size:12px;font-weight:700;color:'+(s?col.hex:'#6b7f96')+'">'+(s?('Игрок '+(i+1)+(isHost?' 👑':'')+(you?' · ты':'')):'ожидание…')+'</div>';
+      +'<div style="font-size:12px;font-weight:700;color:'+(s?col.hex:'#6b7f96')+'">'+(s?(((s.avatar?s.avatar+' ':'')+(s.name||('Игрок '+(i+1)))+(isHost?' 👑':''))+(you?' · ты':'')):'ожидание…')+'</div>';
     wrap.appendChild(row);
   });
   var so=document.getElementById('startOnlineBtn');
@@ -4109,5 +4114,172 @@ function netLeaveRoom(silent){
   var cp=q('copyCodeBtn'); if(cp) cp.addEventListener('click', function(){ try{ navigator.clipboard.writeText(NET.code); cp.textContent='✓ Скопировано'; setTimeout(function(){ cp.textContent='📋 Скопировать код'; },1500); }catch(e){} });
   var ji=q('joinCodeInput'); if(ji) ji.addEventListener('input', function(){ ji.value=ji.value.toUpperCase(); });
 })();
+
+/* ==================== ПРОФИЛЬ + АВТОРИЗАЦИЯ (Firebase Auth) ==================== */
+var PROF = { uid:null, nick:null, avatar:'🐵', coins:0, games:0, wins:0, points:0, lastDaily:null, isGoogle:false, ready:false, createdAt:null, _dailyJustGiven:false };
+var DAILY_BONUS = 50;
+var START_COINS = 100;
+var PROF_AVATARS = ['🐵','🦊','🐼','🐸','🐧','🦄','🐲','🦁','🐯','🐨','🐷','🐹','🦉','🐺','🦖','🐙','🦈','🐳','🦋','🌟','👑','🤖','👻','🎃'];
+var _fbAuth=null;
+
+function profMsg(t){ var e=document.getElementById('profMsg'); if(e) e.textContent=t||''; }
+function profMsg2(t){ var e=document.getElementById('profMsg2'); if(e) e.textContent=t||''; }
+function profNick(){ try{ if(PROF && PROF.nick) return PROF.nick; }catch(e){} return null; }
+function profAvatar(){ try{ if(PROF && PROF.avatar) return PROF.avatar; }catch(e){} return '🐵'; }
+
+function profAuthReady(){
+  if(_fbAuth) return _fbAuth;
+  if(!netInit()) return null;
+  try{ _fbAuth=firebase.auth(); }catch(e){ console.error('auth init', e); return null; }
+  return _fbAuth;
+}
+
+function profInit(){
+  var a=profAuthReady();
+  if(!a) return;
+  try{ a.getRedirectResult().catch(function(e){ if(e&&e.message) profMsg('Google: '+e.message); }); }catch(e){}
+  a.onAuthStateChanged(function(user){
+    if(user){ profOnSignedIn(user); }
+    else { PROF.uid=null; PROF.ready=false; profRender(); }
+  });
+}
+
+function profDefaultNick(user){
+  if(user && user.displayName){ return String(user.displayName).slice(0,20); }
+  return 'Игрок'+Math.floor(1000+Math.random()*9000);
+}
+
+function profOnSignedIn(user){
+  PROF.uid=user.uid;
+  PROF.isGoogle=(user.providerData && user.providerData.some(function(p){ return p.providerId==='google.com'; }));
+  var ref=_fbDb.ref('profiles/'+user.uid);
+  profMsg('Загрузка профиля…');
+  ref.get().then(function(snap){
+    if(snap.exists()){
+      var d=snap.val();
+      PROF.nick=d.nick||profDefaultNick(user);
+      PROF.avatar=d.avatar||'🐵';
+      PROF.coins=(typeof d.coins==='number')?d.coins:START_COINS;
+      PROF.games=d.games||0; PROF.wins=d.wins||0; PROF.points=d.points||0;
+      PROF.lastDaily=d.lastDaily||null;
+      PROF.createdAt=d.createdAt||null;
+    } else {
+      PROF.nick=profDefaultNick(user);
+      PROF.avatar=PROF_AVATARS[Math.floor(Math.random()*PROF_AVATARS.length)];
+      PROF.coins=START_COINS; PROF.games=0; PROF.wins=0; PROF.points=0; PROF.lastDaily=null;
+      PROF.createdAt=firebase.database.ServerValue.TIMESTAMP;
+    }
+    PROF._dailyJustGiven=false;
+    profCheckDaily();
+    PROF.ready=true;
+    profSave();
+    profMsg('');
+    profRender();
+  }).catch(function(e){ profMsg('Ошибка профиля: '+e.message); });
+}
+
+function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function profCheckDaily(){
+  var t=todayStr();
+  if(PROF.lastDaily!==t){
+    PROF.coins=(PROF.coins||0)+DAILY_BONUS;
+    PROF.lastDaily=t;
+    PROF._dailyJustGiven=true;
+  }
+}
+
+function profSave(){
+  if(!PROF.uid || !_fbDb) return;
+  try{
+    _fbDb.ref('profiles/'+PROF.uid).update({
+      nick:PROF.nick, avatar:PROF.avatar, coins:PROF.coins,
+      games:PROF.games, wins:PROF.wins, points:PROF.points,
+      lastDaily:PROF.lastDaily,
+      createdAt:PROF.createdAt||firebase.database.ServerValue.TIMESTAMP,
+      updatedAt:firebase.database.ServerValue.TIMESTAMP
+    });
+  }catch(e){ console.error('profSave', e); }
+}
+
+function profAwardCoins(n, reason){
+  if(!PROF.uid) return;
+  PROF.coins=(PROF.coins||0)+n; profSave(); profRender();
+}
+
+function profSignInGuest(){
+  var a=profAuthReady(); if(!a){ profMsg('⚠ Firebase не настроен'); return; }
+  profMsg('Вход…');
+  a.signInAnonymously().catch(function(e){
+    if(e && e.code==='auth/operation-not-allowed') profMsg('⚠ Включи Anonymous в Firebase → Authentication');
+    else profMsg('Ошибка входа: '+e.message);
+  });
+}
+function profSignInGoogle(){
+  var a=profAuthReady(); if(!a){ profMsg('⚠ Firebase не настроен'); return; }
+  var provider=new firebase.auth.GoogleAuthProvider();
+  profMsg('Вход через Google…');
+  a.signInWithPopup(provider).catch(function(e){
+    if(e && (e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'||e.code==='auth/cancelled-popup-request'||e.code==='auth/popup-closed-by-user')){
+      try{ a.signInWithRedirect(provider); }catch(e2){ profMsg('Ошибка: '+e2.message); }
+    } else if(e && e.code==='auth/operation-not-allowed'){ profMsg('⚠ Включи Google в Firebase → Authentication'); }
+    else if(e && e.code==='auth/unauthorized-domain'){ profMsg('⚠ Добавь домен сайта в Firebase → Authentication → Settings → Authorized domains'); }
+    else { profMsg('Ошибка входа: '+e.message); }
+  });
+}
+function profSignOut(){
+  var a=profAuthReady(); if(!a) return;
+  a.signOut().then(function(){ PROF.uid=null; PROF.ready=false; profRender(); });
+}
+
+function profSaveNick(){
+  var inp=document.getElementById('profNickInput');
+  var v=((inp&&inp.value)||'').trim().slice(0,20);
+  if(v.length<1){ profMsg2('Ник не может быть пустым'); return; }
+  PROF.nick=v; profSave(); profRender(); profMsg2('✓ Ник сохранён');
+}
+function profSetAvatar(a){ PROF.avatar=a; profSave(); profRender(); }
+
+function profBuildAvatarGrid(){
+  var grid=document.getElementById('profAvatarGrid'); if(!grid) return;
+  grid.innerHTML='';
+  PROF_AVATARS.forEach(function(a){
+    var b=document.createElement('button');
+    b.type='button'; b.textContent=a;
+    b.style.cssText='font-size:24px;width:44px;height:44px;border-radius:10px;border:1px solid '+(a===PROF.avatar?'#ffd54a':'#2a3b52')+';background:'+(a===PROF.avatar?'#2a2410':'#0b1524')+';cursor:pointer;';
+    b.addEventListener('click', function(){ profSetAvatar(a); });
+    grid.appendChild(b);
+  });
+}
+
+function profRender(){
+  var auth=document.getElementById('profAuth');
+  var card=document.getElementById('profCard');
+  if(!auth||!card) return;
+  if(!PROF.ready || !PROF.uid){ auth.style.display='block'; card.style.display='none'; return; }
+  auth.style.display='none'; card.style.display='block';
+  var set=function(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; };
+  set('profAvatar', PROF.avatar||'🐵');
+  set('profNickView', PROF.nick||'—');
+  set('profKind', PROF.isGoogle?'вход через Google':'гостевой профиль');
+  set('statCoins', PROF.coins||0);
+  set('statGames', PROF.games||0);
+  set('statWins', PROF.wins||0);
+  set('statPoints', PROF.points||0);
+  var ni=document.getElementById('profNickInput'); if(ni && document.activeElement!==ni) ni.value=PROF.nick||'';
+  var daily=document.getElementById('profDaily');
+  if(daily){ if(PROF._dailyJustGiven){ daily.style.display='block'; var dt=document.getElementById('profDailyTxt'); if(dt) dt.textContent='+'+DAILY_BONUS+' монет за вход сегодня. Заходи каждый день!'; } else daily.style.display='none'; }
+  profBuildAvatarGrid();
+}
+
+(function wireProfile(){
+  var q=function(id){ return document.getElementById(id); };
+  var back=q('profBack'); if(back) back.addEventListener('click', function(){ showScreen('menu'); });
+  var g=q('profGuestBtn'); if(g) g.addEventListener('click', profSignInGuest);
+  var gg=q('profGoogleBtn'); if(gg) gg.addEventListener('click', profSignInGoogle);
+  var so=q('profSignOut'); if(so) so.addEventListener('click', profSignOut);
+  var ns=q('profNickSave'); if(ns) ns.addEventListener('click', profSaveNick);
+  try{ profInit(); }catch(e){ console.error('profInit', e); }
+})();
+
 
 })();
