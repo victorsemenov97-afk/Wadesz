@@ -1990,9 +1990,51 @@ function draw(){
 
   drawEffects(now);
   drawEmotes(now);
+  try{ drawOnlineLabels(); }catch(e){}
   /* HUD-uglы убраны: давали лишние голубые рамки у баз */
 }
 
+function drawOnlineLabels(){
+  if(!NET.on || !players || !players.length) return;
+  var cxC = canvas.width/2, cyC = canvas.height/2;
+  ctx.save();
+  ctx.textBaseline='middle';
+  players.forEach(function(p){
+    var dir=p.dir; var slots=BASE_SLOTS[dir]; if(!slots||!slots.length) return;
+    var sx=0, sy=0;
+    slots.forEach(function(rc){ var q=px(rc[0],rc[1]); sx+=q.x+cellSize/2; sy+=q.y+cellSize/2; });
+    sx/=slots.length; sy/=slots.length;
+    var dx=sx-cxC, dy=sy-cyC, dl=Math.sqrt(dx*dx+dy*dy)||1;
+    var off=cellSize*0.95;
+    var lx=sx+(dx/dl)*off, ly=sy+(dy/dl)*off;
+    var name=(NET.seatNames&&NET.seatNames[dir])?NET.seatNames[dir]:(p.name||COLOR[dir].name);
+    if(name&&name.length>12) name=name.slice(0,11)+'…';
+    var av=(NET.seatsMeta&&NET.seatsMeta[dir]&&NET.seatsMeta[dir].avatar)?NET.seatsMeta[dir].avatar:COLOR[dir].icon;
+    var col=COLOR[dir];
+    var emojiFont=Math.max(12,Math.round(cellSize*0.5));
+    var nameFont=Math.max(10,Math.round(cellSize*0.42));
+    ctx.font='700 '+nameFont+'px system-ui,-apple-system,sans-serif';
+    var tw=ctx.measureText(name).width;
+    var padX=cellSize*0.22, gap=cellSize*0.12;
+    var boxW=padX*2+emojiFont+gap+tw;
+    var boxH=Math.max(cellSize*0.68, emojiFont+cellSize*0.16);
+    var bx=lx-boxW/2, by=ly-boxH/2;
+    var isTurn=(typeof mover==="function") && mover() && mover().dir===dir && !gameOver;
+    ctx.fillStyle='rgba(6,14,26,0.85)';
+    roundRect(bx,by,boxW,boxH,boxH*0.4); ctx.fill();
+    ctx.lineWidth=Math.max(1.5,cellSize*(isTurn?0.1:0.05));
+    ctx.strokeStyle=isTurn?'#ffd54a':(col.hex+'aa');
+    ctx.stroke();
+    ctx.textAlign='left';
+    ctx.font=emojiFont+'px system-ui,-apple-system,sans-serif';
+    ctx.fillStyle='#fff';
+    ctx.fillText(av, bx+padX, ly+1);
+    ctx.fillStyle=col.hex;
+    ctx.font='700 '+nameFont+'px system-ui,-apple-system,sans-serif';
+    ctx.fillText(name, bx+padX+emojiFont+gap, ly+1);
+  });
+  ctx.restore();
+}
 function drawTeleportArrows(){
   const center = c=>{ const {x,y}=px(c[0],c[1]); return [x+cellSize/2,y+cellSize/2]; };
   const pairs = [['tl','tr'],['tr','br'],['br','bl'],['bl','tl']];
@@ -2440,12 +2482,17 @@ function updateTurnBanner(){
 const diceStage = document.getElementById('diceStage');
 function tintDice(dir){
   if(!diceBtn) return;
-  const col = COLOR[dir];
+  var base = COLOR[dir];
+  var pc = null; try{ if(typeof pieceColorFor==="function") pc = pieceColorFor(dir); }catch(e){}
+  var col = pc || base;
   if(!col) return;
-  diceBtn.style.setProperty('--dcol', col.hex);
-  diceBtn.style.setProperty('--dcol-l', lighten(col.hex, 0.45));
-  diceBtn.style.setProperty('--dcol-d', col.dark);
-  diceBtn.style.boxShadow = 'inset 0 1px 1px rgba(255,255,255,0.2), 0 12px 28px rgba(0,0,0,0.55), 0 0 20px ' + col.hex + '55';
+  var hex = col.hex || (base && base.hex);
+  var dark = col.dark || (base && base.dark) || hex;
+  diceBtn.style.setProperty('--dcol', hex);
+  diceBtn.style.setProperty('--dcol-l', lighten(hex, 0.45));
+  diceBtn.style.setProperty('--dcol-d', dark);
+  diceBtn.style.boxShadow = 'inset 0 1px 1px rgba(255,255,255,0.2), 0 12px 28px rgba(0,0,0,0.55), 0 0 20px ' + hex + '55';
+  try{ var root=document.documentElement; root.style.setProperty('--dcol', hex); root.style.setProperty('--dcol-l', lighten(hex,0.45)); root.style.setProperty('--dcol-d', dark); }catch(e){}
 }
 function diceParkHome(){
   diceBtn.style.transition = 'transform .34s cubic-bezier(.2,.9,.3,1)';
@@ -3414,6 +3461,14 @@ document.querySelectorAll('[data-close]').forEach(btn=>{
 addTapListener(document.getElementById('rulesBtn'), ()=>openSheet('rulesSheet'));
 addTapListener(document.getElementById('helpBtn'), ()=>openSheet('rulesSheet'));
 addTapListener(document.getElementById('histBtn'), ()=>openSheet('histSheet'));
+(function wireProfSheets(){
+  var mk=function(btnId, sheetId, fn){ var b=document.getElementById(btnId); if(!b) return; addTapListener(b, function(){ try{ if(fn) fn(); }catch(e){} openSheet(sheetId); }); };
+  mk('openShopBtn','shopSheet', function(){ shopRender(); });
+  mk('openAchBtn','achSheet', function(){ achRender(); });
+  mk('openFriendsBtn','friendsSheet', function(){ friendsWire(); friendsRender(); });
+  mk('openWorldChatBtn','worldChatSheet', null);
+  mk('openLeaderBtn','leaderSheet', function(){ try{ netLoadLeaderboard(); }catch(e){} });
+})();
 document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSheets(); });
 
 modeSeg.addEventListener('click', (e)=>{
@@ -4797,6 +4852,7 @@ function applyDiceSkin(){
     else { root.style.removeProperty('--dcol'); root.style.removeProperty('--dcol-l'); root.style.removeProperty('--dcol-d'); }
   }catch(e){}
   try{ rebuildDiceFaces(); }catch(e){}
+  try{ if(typeof players!=="undefined" && players && players.length && !gameOver && typeof mover==="function"){ var _mv=mover(); if(_mv) tintDice(_mv.dir); } }catch(e){}
 }
 function profShopMsg(t){ var e=document.getElementById('shopMsg'); if(e) e.textContent=t||''; }
 function shopBuy(id){
