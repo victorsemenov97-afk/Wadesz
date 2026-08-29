@@ -1187,6 +1187,7 @@ function showScreen(name){
   document.getElementById('menu').style.display = (name === 'menu') ? 'flex' : 'none';
   document.getElementById('setup').style.display = (name === 'setup') ? 'flex' : 'none';
   document.getElementById('game').style.display = (name === 'game') ? 'flex' : 'none';
+  var _on=document.getElementById('online'); if(_on) _on.style.display = (name === 'online') ? 'flex' : 'none';
   if(name !== 'game') releaseWakeLock();
   try{ musicSync(); }catch(e){}
 }
@@ -1250,6 +1251,7 @@ document.querySelectorAll('[data-menu]').forEach(btn=>{
     else if(act === 'settings'){ syncSettingsUI(); openSheet('settingsSheet'); }
     else if(act === 'rules'){ openSheet('rulesSheet'); }
     else if(act === 'stats'){ renderStatsSheet(); openSheet('statsSheet'); }
+    else if(act === 'online'){ netOpenHome(); showScreen('online'); }
     else if(act === 'credits'){ openSheet('creditsSheet'); }
     else if(act === 'exit'){ doExit(); }
   });
@@ -2193,6 +2195,7 @@ function showChoice(i, acts){
 
 canvas.addEventListener('pointerdown', (e)=>{
   if(gameOver || rolling) return;
+  if(NET.on && !netMyTurn()) return;
   Haptic.tap();
   const m = mover();
   const rect = canvas.getBoundingClientRect();
@@ -2396,6 +2399,7 @@ function updateTurnBanner(){
     diceBtn.classList.toggle('hot', !slot.isAI && !mustPickPiece && !rolling && !gameOver);
     turnBanner.classList.toggle('pulse', !slot.isAI && !mustPickPiece && !rolling && !gameOver);
   }
+  try{ netAdjustTurnUI(); }catch(e){}
 }
 
 const diceStage = document.getElementById('diceStage');
@@ -2432,6 +2436,7 @@ function flashDieResult(v){
 }
 function rollDice(power, vx, vy){
   if(rolling || mustPickPiece || gameOver || gameMode === 'physical') return;
+  if(NET.on && !netMyTurn()) return;
   rolling = true;
   diceBtn.classList.add('disabled');
   diceBtn.classList.remove('hot');
@@ -2541,6 +2546,7 @@ let diceGrab = null;
 diceBtn.addEventListener('pointerdown', (e)=>{
   if(gameMode === 'physical' || rolling || mustPickPiece || gameOver) return;
   if(activePlayer().isAI) return;
+  if(NET.on && !netMyTurn()) return;
   const t = performance.now();
   const noDrag = (Settings.throwMode === 'fast') || !Settings.fx;
   diceGrab = { x:e.clientX, y:e.clientY, lx:e.clientX, ly:e.clientY, lt:t, vx:0, vy:0, noDrag };
@@ -3428,7 +3434,7 @@ addTapListener(document.getElementById('startBtn'), ()=>{
 });
 
 addTapListener(document.getElementById('menuBtn'), ()=>{
-  persistGame();
+  persistLocal();
   openSheet('pauseSheet');
 });
 
@@ -3692,9 +3698,13 @@ function collectSave(){
     moveHistory: Array.isArray(moveHistory) ? moveHistory.slice(-120) : []
   };
 }
-function persistGame(){
+function persistLocal(){
   if(!players || !players.length || gameOver) return;
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(collectSave())); }catch(e){}
+}
+function persistGame(){
+  persistLocal();
+  try{ netOnPersist(); }catch(e){}
 }
 function readSave(){
   try{
@@ -3811,7 +3821,7 @@ addTapListener(document.getElementById('toMenuBtn'), ()=>{ exitToMenu(); });
 addTapListener(document.getElementById('pauseResume'), ()=>{ try{Sound.click();}catch(e){} closeSheets(); });
 addTapListener(document.getElementById('pauseSave'), ()=>{
   try{Sound.click();}catch(e){}
-  persistGame();
+  persistLocal();
   exitToMenu();
 });
 addTapListener(document.getElementById('pauseRestart'), ()=>{
@@ -3829,8 +3839,8 @@ addTapListener(document.getElementById('pauseQuit'), ()=>{
   exitToMenu();
 });
 
-window.addEventListener('beforeunload', persistGame);
-document.addEventListener('visibilitychange', ()=>{ if(document.hidden) persistGame(); });
+window.addEventListener('beforeunload', persistLocal);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) persistLocal(); });
 refreshResumeBlock();
 
 function spawnPoof(r,c){
@@ -3868,4 +3878,236 @@ requestAnimationFrame(renderLoop);
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
+
+/* ==================== ОНЛАЙН-РЕЖИМ (Firebase) ==================== */
+var NET = { on:false, code:null, myId:null, isHost:false, seats:{}, seatNames:{}, seatsMeta:{}, mySeat:null, roomRef:null, applying:false, seq:0, count:2, status:'idle', unsub:[] };
+var ONLINE_DIRS = ['top','right','bottom','left'];
+var _fbDb = null;
+
+function netConfigured(){
+  return (typeof firebase !== 'undefined') && (typeof FIREBASE_CONFIG !== 'undefined')
+    && !!FIREBASE_CONFIG.databaseURL && FIREBASE_CONFIG.databaseURL.indexOf('PASTE') < 0;
+}
+function netInit(){
+  if(_fbDb) return true;
+  if(!netConfigured()) return false;
+  try{
+    if(!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+    _fbDb = firebase.database();
+    return true;
+  }catch(e){ console.error('Firebase init error', e); return false; }
+}
+function netUid(){
+  var id=null;
+  try{ id=localStorage.getItem('mandashnya_uid'); }catch(e){}
+  if(!id){ id='u'+Math.random().toString(36).slice(2,10); try{ localStorage.setItem('mandashnya_uid', id); }catch(e){} }
+  return id;
+}
+function genCode(){ var AB='ACDEFGHJKLMNPQRSTUVWXYZ23456789'; var s=''; for(var i=0;i<4;i++) s+=AB[Math.floor(Math.random()*AB.length)]; return s; }
+function onlineMsg(t){ var el=document.getElementById('onlineMsg'); if(el) el.textContent=t||''; }
+function lobbyMsg(t){ var el=document.getElementById('lobbyMsg'); if(el) el.textContent=t||''; }
+
+function netOpenHome(){
+  var lb=document.getElementById('onlineLobby'); if(lb) lb.style.display='none';
+  var hm=document.getElementById('onlineHome'); if(hm) hm.style.display='block';
+  onlineMsg('');
+  if(!netConfigured()) onlineMsg('⚠ Firebase не настроен: впиши databaseURL в firebase-config.js');
+}
+
+function netCreateRoom(){
+  if(!netInit()){ onlineMsg('⚠ Firebase не настроен (см. firebase-config.js)'); return; }
+  NET.myId = netUid();
+  var code = genCode();
+  var roomRef = _fbDb.ref('rooms/'+code);
+  var seatDirs = ONLINE_DIRS.slice(0, NET.count);
+  var seats = {};
+  seats[seatDirs[0]] = { uid: NET.myId, name:'Игрок 1' };
+  onlineMsg('Создаю комнату…');
+  roomRef.set({ host:NET.myId, count:NET.count, status:'lobby', createdAt: firebase.database.ServerValue.TIMESTAMP, seats:seats })
+    .then(function(){ NET.code=code; NET.isHost=true; NET.roomRef=roomRef; NET.mySeat=seatDirs[0]; netEnterLobby(); })
+    .catch(function(e){ onlineMsg('Ошибка создания: '+e.message); });
+}
+
+function netJoinRoom(){
+  if(!netInit()){ onlineMsg('⚠ Firebase не настроен (см. firebase-config.js)'); return; }
+  var inp=document.getElementById('joinCodeInput');
+  var code=((inp&&inp.value)||'').trim().toUpperCase();
+  if(code.length<4){ onlineMsg('Введи код из 4 символов'); return; }
+  NET.myId=netUid();
+  var roomRef=_fbDb.ref('rooms/'+code);
+  onlineMsg('Подключаюсь…');
+  roomRef.get().then(function(snap){
+    if(!snap.exists()){ onlineMsg('Комната не найдена'); return; }
+    var room=snap.val();
+    if(room.status!=='lobby'){ onlineMsg('Игра уже началась'); return; }
+    var seatDirs=ONLINE_DIRS.slice(0, room.count);
+    var mySeat=null;
+    seatDirs.forEach(function(d){ if(room.seats&&room.seats[d]&&room.seats[d].uid===NET.myId) mySeat=d; });
+    if(!mySeat){ mySeat=seatDirs.find(function(d){ return !(room.seats&&room.seats[d]); }); }
+    if(!mySeat){ onlineMsg('В комнате нет свободных мест'); return; }
+    var name='Игрок '+(seatDirs.indexOf(mySeat)+1);
+    roomRef.child('seats/'+mySeat).set({ uid:NET.myId, name:name })
+      .then(function(){ NET.code=code; NET.isHost=(room.host===NET.myId); NET.roomRef=roomRef; NET.count=room.count; NET.mySeat=mySeat; netEnterLobby(); })
+      .catch(function(e){ onlineMsg('Ошибка входа: '+e.message); });
+  }).catch(function(e){ onlineMsg('Ошибка: '+e.message); });
+}
+
+function netEnterLobby(){
+  NET.status='lobby';
+  document.getElementById('onlineHome').style.display='none';
+  document.getElementById('onlineLobby').style.display='block';
+  var cc=document.getElementById('lobbyCode'); if(cc) cc.textContent=NET.code;
+  var handler=NET.roomRef.on('value', function(snap){
+    if(!snap.exists()){ if(NET.status!=='playing'){ lobbyMsg('Комната закрыта'); netLeaveRoom(true); netOpenHome(); } return; }
+    var room=snap.val();
+    NET.count=room.count; NET.seatsMeta=room.seats||{};
+    if(NET.status==='lobby') renderLobbySeats(room);
+    if(room.status==='playing' && NET.status!=='playing'){ netStartClient(room); }
+    if(room.status==='playing' && room.state){ netApplyIncoming(room.state); }
+  });
+  NET.unsub.push(function(){ try{ NET.roomRef.off('value', handler); }catch(e){} });
+}
+
+function renderLobbySeats(room){
+  var wrap=document.getElementById('lobbySeats'); if(!wrap) return;
+  var seatDirs=ONLINE_DIRS.slice(0, room.count);
+  var filled=0; wrap.innerHTML='';
+  seatDirs.forEach(function(d,i){
+    var col=COLOR[d]; var s=room.seats&&room.seats[d]; if(s) filled++;
+    var you=s&&s.uid===NET.myId; var isHost=s&&room.host===s.uid;
+    var row=document.createElement('div'); row.className='slot-row';
+    row.innerHTML='<div class="slot-name"><span class="swatch" style="background:'+col.hex+';color:'+col.hex+'"></span>'+col.icon+' '+col.name+'</div>'
+      +'<div style="font-size:12px;font-weight:700;color:'+(s?col.hex:'#6b7f96')+'">'+(s?('Игрок '+(i+1)+(isHost?' 👑':'')+(you?' · ты':'')):'ожидание…')+'</div>';
+    wrap.appendChild(row);
+  });
+  var so=document.getElementById('startOnlineBtn');
+  if(so){ so.style.display=(NET.isHost)?'block':'none'; so.classList.toggle('disabled', filled<2); }
+  lobbyMsg(NET.isHost ? (filled<2?'Ждём ещё игроков…':'Все в сборе — можно начинать!') : 'Ждём, когда хост начнёт…');
+}
+
+function netStartHost(){
+  if(!NET.isHost || !NET.roomRef) return;
+  var seatDirs=ONLINE_DIRS.slice(0, NET.count);
+  var filled=seatDirs.filter(function(d){ return NET.seatsMeta&&NET.seatsMeta[d]; });
+  if(filled.length<2){ lobbyMsg('Нужно минимум 2 игрока'); return; }
+  NET.roomRef.child('status').set('playing').catch(function(e){ lobbyMsg('Ошибка: '+e.message); });
+}
+
+function netStartClient(room){
+  NET.status='playing'; NET.on=true; NET.applying=false; NET.seq=0;
+  NET.seats={}; NET.seatNames={};
+  var seatDirs=ONLINE_DIRS.slice(0, room.count);
+  var activeDirs=seatDirs.filter(function(d){ return room.seats&&room.seats[d]; });
+  activeDirs.forEach(function(d){ NET.seats[d]=room.seats[d].uid; NET.seatNames[d]=room.seats[d].name; });
+  gameMode='ffa'; botDifficulty='normal'; gameSpeed='normal'; totalCount=activeDirs.length;
+  try{ closeSheets(); }catch(e){}
+  showScreen('game');
+  if(NET.isHost){
+    var config=activeDirs.map(function(d){ return { dir:d, isAI:false }; });
+    startGame(config);
+  } else {
+    try{ turnBanner.textContent='Ожидание старта партии…'; }catch(e){}
+  }
+}
+
+function netMyTurn(){
+  if(!NET.on) return true;
+  var p=players[currentIdx];
+  if(!p) return false;
+  return NET.seats[p.dir]===NET.myId;
+}
+
+function netAdjustTurnUI(){
+  if(!NET.on) return;
+  var p=players[currentIdx]; if(!p) return;
+  var mine=netMyTurn();
+  try{
+    diceBtn.classList.toggle('disabled', !mine || rolling || mustPickPiece || gameOver);
+    diceBtn.classList.toggle('hot', mine && !mustPickPiece && !rolling && !gameOver);
+  }catch(e){}
+  if(!mine){
+    var nm=(NET.seatNames&&NET.seatNames[p.dir])?NET.seatNames[p.dir]:COLOR[p.dir].name;
+    try{ turnBanner.textContent=COLOR[p.dir].icon+' Ход: '+nm+' · ожидание…'; turnBanner.classList.remove('pulse'); }catch(e){}
+  }
+}
+
+function netOnPersist(){
+  if(!NET.on || NET.applying || !NET.roomRef) return;
+  try{
+    NET.seq=(NET.seq||0)+1;
+    NET.roomRef.child('state').set({ seq:NET.seq, by:NET.myId, snapshot:collectSave() });
+  }catch(e){ console.error('net push error', e); }
+}
+
+function netApplyIncoming(state){
+  if(!state || typeof state.seq!=='number') return;
+  if(state.seq<=NET.seq){ return; }
+  NET.seq=state.seq;
+  if(state.by===NET.myId) return;
+  if(!state.snapshot) return;
+  NET.applying=true;
+  try{ applyNetState(state.snapshot); }catch(e){ console.error('applyNetState error', e); }
+  NET.applying=false;
+}
+
+function applyNetState(d){
+  if(!d || !Array.isArray(d.players) || !d.players.length) return;
+  gameMode=d.gameMode||'ffa'; botDifficulty=d.botDifficulty||'normal'; gameSpeed=d.gameSpeed||'normal';
+  totalCount=d.totalCount||d.players.length;
+  players=d.players.map(function(p){ return {
+    dir:p.dir, isAI:!!p.isAI, name:COLOR[p.dir].name,
+    persona:p.persona?(PERSONAS.find(function(x){ return x.key===p.persona; })||null):null,
+    grudge:(p.grudge&&typeof p.grudge==='object')?Object.assign({},p.grudge):{},
+    lastHitBy:p.lastHitBy||null, revengeOn:null,
+    pieces:p.pieces.map(function(pc){ return { step:pc.step, lap:pc.lap||0, shield:!!pc.shield, shieldUntil:pc.shieldUntil||0, frozen:pc.frozen||0 }; })
+  }; });
+  bonuses=Array.isArray(d.bonuses)?d.bonuses.map(function(b){ return { cell:b.cell, type:bonusTypeByKey(b.key) }; }).filter(function(b){ return !!b.cell&&b.type.key!=='blockade'; }):[];
+  blockades=Array.isArray(d.blockades)?d.blockades.map(function(b){ return { cell:b.cell, turns:b.turns||1 }; }).filter(function(b){ return !!b.cell; }):[];
+  finishOrder=Array.isArray(d.finishOrder)?d.finishOrder.slice():[];
+  crazyTurnCount=d.crazyTurnCount||0;
+  bonusExtraRoll=false; doubleNext={}; sixStreak={}; particles=[]; shocks=[]; trails=[];
+  currentIdx=Math.min(d.currentIdx||0, players.length-1);
+  diceValue=d.diceValue||1;
+  if(typeof d.diceSeed==='string'&&d.diceSeed.length>=8){ DICE_SEED=d.diceSeed; DICE_COMMIT=sha256hex(DICE_SEED); DICE_INDEX=d.diceIndex||0; DICE_LOG=[]; }
+  stats=d.stats||{};
+  players.forEach(function(p){ if(!stats[p.dir]) stats[p.dir]={ moves:0,captures:0,lost:0,sixes:0,teleports:0,finished:0,points:0,bonuses:0 }; });
+  moveHistory=Array.isArray(d.moveHistory)?d.moveHistory:[];
+  gameOver=false; rolling=false; animState=null; mustPickPiece=false; movablePieces=[]; selectedPiece=-1; validTargets=[]; poofs=[]; emotes=[];
+  var wo=document.getElementById('winOverlay'); if(wo) wo.style.display='none';
+  try{ resizeCanvas(); }catch(e){}
+  try{ renderHistory(); }catch(e){}
+  try{ clearChoice(); }catch(e){}
+  try{ renderScoreStrip(); }catch(e){}
+  try{ setDiceRotation(diceValue); }catch(e){}
+  try{ updateTurnBanner(); }catch(e){}
+  try{ draw(); }catch(e){}
+}
+
+function netLeaveRoom(silent){
+  try{ (NET.unsub||[]).forEach(function(fn){ fn(); }); }catch(e){}
+  NET.unsub=[];
+  if(!silent && NET.roomRef){
+    try{
+      if(NET.isHost) NET.roomRef.remove();
+      else if(NET.mySeat) NET.roomRef.child('seats/'+NET.mySeat).remove();
+    }catch(e){}
+  }
+  NET.on=false; NET.status='idle'; NET.roomRef=null; NET.code=null; NET.isHost=false; NET.seats={}; NET.mySeat=null;
+  var lb=document.getElementById('onlineLobby'); if(lb) lb.style.display='none';
+  var hm=document.getElementById('onlineHome'); if(hm) hm.style.display='block';
+}
+
+(function wireOnline(){
+  var q=function(id){ return document.getElementById(id); };
+  var back=q('onlineBack'); if(back) back.addEventListener('click', function(){ netLeaveRoom(); showScreen('menu'); });
+  var seg=q('onlineCountSeg');
+  if(seg) seg.addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return; NET.count=parseInt(b.dataset.v,10)||2; Array.prototype.forEach.call(seg.children,function(x){ x.classList.toggle('active', x===b); }); });
+  var cr=q('createRoomBtn'); if(cr) cr.addEventListener('click', netCreateRoom);
+  var jr=q('joinRoomBtn'); if(jr) jr.addEventListener('click', netJoinRoom);
+  var so=q('startOnlineBtn'); if(so) so.addEventListener('click', netStartHost);
+  var lv=q('leaveRoomBtn'); if(lv) lv.addEventListener('click', function(){ netLeaveRoom(); });
+  var cp=q('copyCodeBtn'); if(cp) cp.addEventListener('click', function(){ try{ navigator.clipboard.writeText(NET.code); cp.textContent='✓ Скопировано'; setTimeout(function(){ cp.textContent='📋 Скопировать код'; },1500); }catch(e){} });
+  var ji=q('joinCodeInput'); if(ji) ji.addEventListener('input', function(){ ji.value=ji.value.toUpperCase(); });
+})();
+
 })();

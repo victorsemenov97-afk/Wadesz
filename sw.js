@@ -1,10 +1,11 @@
 // Мандашня — service worker (offline-ready)
-const CACHE = "mandashnya-v1";
+const CACHE = "mandashnya-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./game.js",
+  "./firebase-config.js",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
