@@ -793,3 +793,5 @@ details.acc > summary::-webkit-details-marker{ display:none; }
 details.acc > summary::after{ content:"\25be"; color:#6b7f96; transition:transform .2s; }
 details.acc[open] > summary::after{ transform:rotate(180deg); }
 details.acc > .setup-block{ margin:0 12px 12px !important; }
+#gameChatEmojis button{ background:#132338; border:1px solid #2a3b52; border-radius:8px; font-size:18px; line-height:1; padding:4px 6px; cursor:pointer; }
+#gameChatEmojis button:active{ background:#1d3350; }
