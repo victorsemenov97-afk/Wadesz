@@ -30,15 +30,19 @@
       <div class="rule"></div>
     </div>
     <div class="menu-list">
-      <button type="button" class="menu-btn primary" data-menu="play">▶ Начать игру</button>
+      <button type="button" class="menu-btn primary" data-menu="play">▶ Играть</button>
       <button type="button" class="menu-btn" data-menu="resume" id="menuResumeBtn" style="display:none;">⏩ Продолжить вылет</button>
-      <button type="button" class="menu-btn" data-menu="profile">👤 Профиль</button>
-      <button type="button" class="menu-btn" data-menu="online">🌐 Онлайн (по сети)</button>
-      <button type="button" class="menu-btn" data-menu="settings">⚙ Настройки</button>
-      <button type="button" class="menu-btn" data-menu="rules">📖 Правила</button>
-      <button type="button" class="menu-btn" data-menu="stats">📊 Статистика</button>
-      <button type="button" class="menu-btn" data-menu="credits">🎖 Создатели</button>
-      <button type="button" class="menu-btn warn" data-menu="exit">✕ Выход</button>
+      <div class="menu-tiles">
+        <button type="button" class="menu-tile" data-menu="online"><span class="mt-ico">🌐</span><span class="mt-label">Онлайн</span></button>
+        <button type="button" class="menu-tile" data-menu="profile"><span class="mt-ico">👤</span><span class="mt-label">Профиль</span></button>
+        <button type="button" class="menu-tile" data-menu="shop"><span class="mt-ico">🛍</span><span class="mt-label">Магазин</span></button>
+        <button type="button" class="menu-tile" data-menu="settings"><span class="mt-ico">⚙</span><span class="mt-label">Настройки</span></button>
+      </div>
+      <div class="menu-foot-links">
+        <button type="button" class="foot-link" data-menu="rules">📖 Правила</button>
+        <span class="foot-dot">·</span>
+        <button type="button" class="foot-link" data-menu="credits">🎖 Создатели</button>
+      </div>
     </div>
     <div class="menu-foot">ЭКИПАЖ ГОТОВ · ВЕРСИЯ 2.0<br>© Семенов Виктор</div>
   </div>
@@ -174,6 +178,7 @@
           <button type="button" class="menu-btn" id="openShopBtn">🛍 Магазин косметики</button>
           <button type="button" class="menu-btn" id="openAchBtn">🏅 Достижения · <span id="achCount" style="color:#6b7f96;">0/0</span></button>
           <button type="button" class="menu-btn" id="openFriendsBtn">👥 Друзья</button>
+          <button type="button" class="menu-btn" data-menu="stats">📊 Статистика</button>
         </div>
       </div>
       <button id="profSignOut" class="ghost" style="margin-top:8px;">🚪 Выйти из профиля</button>
@@ -256,7 +261,7 @@
     </div>
     <div id="gameChatMsgs" style="height:180px;overflow-y:auto;background:#0b1524;border:1px solid #2a3b52;border-radius:10px;padding:8px;margin-top:6px;"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
-      <input id="gameChatInput" maxlength="200" placeholder="Со��бщение…" style="flex:1;box-sizing:border-box;padding:8px;border-radius:10px;border:1px solid #2a3b52;background:#0b1524;color:#eaf3ff;font-size:15px;" />
+      <input id="gameChatInput" maxlength="200" placeholder="Сообщение…" style="flex:1;box-sizing:border-box;padding:8px;border-radius:10px;border:1px solid #2a3b52;background:#0b1524;color:#eaf3ff;font-size:15px;" />
       <button id="gameChatSend" class="menu-btn" style="width:auto;padding:0 14px;">➤</button>
     </div>
   </div>
@@ -485,6 +490,7 @@
       <div class="medal">🔊 Звук — турбины, форсаж, взрывы, радиообмен</div>
       <div class="medal">🤖 Боты — 5 характеров с личными подколами</div>
       <h4>Характеры экипажей</h4>
+      <div class="persona-grid">
       <div class="persona-card"><div class="pi">🎖</div><div><div class="pn">АС</div><div class="pd">Ледяной расчёт, бьёт наверняка</div></div></div>
       <div class="persona-card"><div class="pi">💥</div><div><div class="pn">БЕРСЕРК</div><div class="pd">Таранит всё, что движется</div></div></div>
       <div class="persona-card"><div class="pi">🛡</div><div><div class="pn">ЧЕРЕПАХА</div><div class="pd">Осторожный, бережёт борта</div></div></div>
@@ -497,6 +503,7 @@
       <div class="persona-card"><div class="pi">🏴‍☠️</div><div><div class="pn">ПИРАТ</div><div class="pd">Охотится за бонусами и чужими бортами</div></div></div>
       <div class="persona-card"><div class="pi">🤖</div><div><div class="pn">АВТОПИЛОТ</div><div class="pd">Чистая математика без эмоций</div></div></div>
       <div class="persona-card"><div class="pi">🎤</div><div><div class="pn">АРТИСТ</div><div class="pd">Играет эффектно и на публику</div></div></div>
+      </div>
       <div class="pause-note">Мандашня · версия 2.0 · небо за нами</div>
     </div>
   </div>
@@ -575,9 +582,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script src="engine3d.js"></script>
-<script src="textures3d.js"></script>
-<script src="board3d.js"></script>
 <script src="game.js"></script>
 <script>
 if ('serviceWorker' in navigator) {

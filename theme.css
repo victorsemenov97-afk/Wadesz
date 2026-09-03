@@ -78,6 +78,38 @@ body::before{
 .menu-btn.warn{ color:#ffb7c0 !important; border-color:rgba(255,90,110,.32) !important; background:linear-gradient(180deg, rgba(255,90,110,.13), rgba(255,90,110,.03)) !important; }
 .menu-foot{ color:var(--m-muted) !important; font-size:10px !important; letter-spacing:1px !important; }
 
+/* ---------- Плитки главного меню (сетка 2x2) ---------- */
+#menu .menu-tiles{ display:grid !important; grid-template-columns:1fr 1fr !important; gap:11px !important; margin-top:2px !important; }
+#menu .menu-tile{
+  display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important;
+  gap:7px !important; padding:18px 10px !important; min-height:94px !important;
+  background:linear-gradient(180deg, var(--m-card2), var(--m-card)) !important;
+  border:1px solid var(--m-line) !important; border-radius:18px !important; color:var(--m-ink) !important;
+  box-shadow:0 10px 26px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  backdrop-filter:blur(10px); transition:transform .12s ease, box-shadow .2s ease, border-color .2s ease !important;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+#menu .menu-tile:active{ transform:translateY(1px) scale(.97) !important; border-color:var(--m-line2) !important; }
+#menu .menu-tile .mt-ico{ font-size:30px !important; line-height:1 !important; filter:drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+#menu .menu-tile .mt-label{ font-size:13px !important; font-weight:800 !important; letter-spacing:.4px !important; color:var(--m-ink) !important; }
+
+/* ---------- Мелкие ссылки внизу меню ---------- */
+#menu .menu-foot-links{ display:flex !important; align-items:center !important; justify-content:center !important; gap:8px !important; margin-top:4px !important; }
+#menu .menu-foot-links .foot-link{
+  background:none !important; border:none !important; box-shadow:none !important; padding:6px 8px !important; width:auto !important;
+  color:var(--m-muted) !important; font-size:12px !important; font-weight:700 !important; letter-spacing:.3px !important;
+  text-transform:none !important; cursor:pointer; backdrop-filter:none !important;
+}
+#menu .menu-foot-links .foot-link:active{ color:var(--m-ink2) !important; transform:none !important; }
+#menu .menu-foot-links .foot-dot{ color:var(--m-muted) !important; opacity:.5; }
+
+/* ---------- Создатели: компактная сетка характеров ---------- */
+#creditsSheet .persona-grid{ display:grid !important; grid-template-columns:1fr 1fr !important; gap:8px !important; margin-top:6px !important; }
+#creditsSheet .persona-card{ display:flex !important; align-items:center !important; gap:9px !important; margin:0 !important; padding:10px 11px !important; background:linear-gradient(180deg, var(--m-card2), var(--m-card)) !important; border:1px solid var(--m-line) !important; border-radius:14px !important; box-shadow:none !important; }
+#creditsSheet .persona-card .pi{ font-size:22px !important; line-height:1 !important; flex:0 0 auto !important; }
+#creditsSheet .persona-card .pn{ font-size:13px !important; font-weight:800 !important; color:var(--m-ink) !important; letter-spacing:.3px !important; }
+#creditsSheet .persona-card .pd{ font-size:10.5px !important; color:var(--m-muted) !important; line-height:1.25 !important; }
+
 /* ---------- Карточки: настройки/профиль/онлайн ---------- */
 .sheet,.setup-block,.card,.panel,#online>div,#profile>div{
   background:linear-gradient(180deg, var(--m-card2), var(--m-card)) !important;
@@ -144,25 +176,6 @@ body::before{
 /* ---------- Поле ---------- */
 #boardWrap{ padding:2px 8px !important; }
 #boardCanvas{ border:1px solid var(--m-line2) !important; border-radius:18px !important; background:#0a0e22 !important; box-shadow:0 24px 58px rgba(0,0,0,.6) !important; }
-body.r3d #boardCanvas{ background:transparent !important; }
-
-/* ---------- Кубик: современная кнопка броска (3D-кубик рисуется на поле) ---------- */
-body.r3d #diceBtn .dice-stage{ display:none !important; }
-body.r3d #diceBtn{
-  width:78px !important; height:78px !important; border-radius:50% !important; padding:0 !important;
-  background:radial-gradient(circle at 34% 28%, #9a8bff, var(--m-violet) 55%, var(--m-violet2) 100%) !important;
-  border:1px solid rgba(255,255,255,0.4) !important;
-  box-shadow:0 12px 30px rgba(91,63,240,.6), inset 0 2px 8px rgba(255,255,255,.4) !important;
-  display:flex !important; align-items:center; justify-content:center;
-}
-body.r3d #diceBtn::after{ content:'🎲'; font-size:38px; line-height:1; filter:drop-shadow(0 2px 4px rgba(0,0,0,.45)); }
-body.r3d #diceBtn:active{ transform:scale(.93) !important; }
-body.r3d #diceBtn.disabled{ filter:grayscale(.55) brightness(.7); opacity:.85 !important; }
-body.r3d #diceBtn:not(.disabled){ animation:mRollPulse 1.9s ease-out infinite; }
-@keyframes mRollPulse{
-  0%{ box-shadow:0 12px 30px rgba(91,63,240,.6), inset 0 2px 8px rgba(255,255,255,.4), 0 0 0 0 rgba(124,92,255,.5); }
-  100%{ box-shadow:0 12px 30px rgba(91,63,240,.6), inset 0 2px 8px rgba(255,255,255,.4), 0 0 0 18px rgba(124,92,255,0); }
-}
 #choiceBar button.primary{ background:linear-gradient(135deg,var(--m-violet),var(--m-indigo)) !important; color:#fff !important; border:none !important; box-shadow:0 6px 16px rgba(91,63,240,.45) !important; }
 #passBtn{ border-radius:12px !important; }
 
@@ -186,29 +199,6 @@ body.r3d #diceBtn:not(.disabled){ animation:mRollPulse 1.9s ease-out infinite; }
 #gameChatBtn{ background:linear-gradient(135deg,var(--m-indigo),var(--m-violet)) !important; border:none !important; box-shadow:0 8px 20px rgba(74,107,255,.5) !important; }
 #reactToggle{ background:linear-gradient(135deg,var(--m-pink),#c23bff) !important; border:none !important; box-shadow:0 8px 20px rgba(194,59,255,.5) !important; }
 #reactBar{ background:linear-gradient(180deg, rgba(14,20,44,.98), rgba(7,10,22,.99)) !important; border:1px solid var(--m-line2) !important; }
-
-
-/* ===== ИСПРАВЛЕНИЕ: в 3D-режиме кубик рисует WebGL. #diceBtn — ПРОЗРАЧНАЯ зона тапа ===== */
-body.r3d #diceBtn{
-  background:none !important; border:0 !important; box-shadow:none !important;
-  width:98px !important; height:98px !important; border-radius:50% !important; padding:0 !important; display:block !important;
-}
-body.r3d #diceBtn .dice-stage{ display:none !important; }
-body.r3d #diceBtn::after{
-  content:'' !important; position:absolute !important; inset:0 !important; border-radius:50% !important;
-  background:none !important; filter:none !important; opacity:1 !important; z-index:0; pointer-events:none;
-  box-shadow:0 0 0 0 rgba(124,92,255,0) !important;
-}
-body.r3d #diceBtn:not(.disabled){ animation:none !important; }
-body.r3d #diceBtn:not(.disabled)::after{ animation:mDiceRing 2s ease-out infinite !important; }
-@keyframes mDiceRing{
-  0%{ box-shadow:0 0 0 1px rgba(124,92,255,.5), 0 0 14px 2px rgba(124,92,255,.22) !important; }
-  75%{ box-shadow:0 0 0 13px rgba(124,92,255,0), 0 0 16px 3px rgba(124,92,255,.05) !important; }
-  100%{ box-shadow:0 0 0 13px rgba(124,92,255,0) !important; }
-}
-body.r3d #diceBtn:active{ transform:translate(-50%,-50%) scale(0.94) !important; }
-body.r3d #diceBtn.disabled{ opacity:.9 !important; filter:none !important; }
-body.r3d #diceBtn.disabled::after{ animation:none !important; box-shadow:none !important; }
 
 /* ===== Убрать клаттер для рядового игрока: крипто-пруф честности кубика ===== */
 .proof-box{ display:none !important; }

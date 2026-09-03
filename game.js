@@ -1264,6 +1264,7 @@ document.querySelectorAll('[data-menu]').forEach(btn=>{
     else if(act === 'profile'){ showScreen('profile'); try{ profRender(); }catch(e){} }
     else if(act === 'online'){ netOpenHome(); showScreen('online'); }
     else if(act === 'credits'){ openSheet('creditsSheet'); }
+    else if(act === 'shop'){ if(typeof PROF!=='undefined' && PROF && PROF.uid){ try{ shopRender(); }catch(e){} openSheet('shopSheet'); } else { showScreen('profile'); try{ profRender(); }catch(e){} } }
     else if(act === 'exit'){ doExit(); }
   });
 });
@@ -1675,7 +1676,7 @@ function nextTurn(extra){
 
 const canvas = document.getElementById('boardCanvas');
 let R3D = null;
-try { if(window.GLB && window.GLB.Renderer && window.Board3D && window.TEX3D) R3D = new GLB.Renderer(canvas, { antialias:true }); } catch(e){ R3D = null; try{ console.warn('WebGL unavailable; using 2D fallback', e); }catch(_){} }
+try { if(window.GLB && window.GLB.Renderer && window.Board3D && window.TEX3D) R3D = null /* 3D-движок отключён: используется штатный 2D-рендер */; } catch(e){ R3D = null; try{ console.warn('WebGL unavailable; using 2D fallback', e); }catch(_){} }
 let ctx;
 if(R3D){ document.body.classList.add('r3d'); const _oc2d = document.createElement('canvas'); _oc2d.width = _oc2d.height = 1024; ctx = _oc2d.getContext('2d'); }
 else { ctx = canvas.getContext('2d'); }
@@ -4741,7 +4742,7 @@ function chatSend(refFn, inputId){
   if(!t) return;
   if(!chatCanSend()) return;
   inp.value='';
-  try{ refFn().push({ uid:PROF.uid, nick:profNick()||'Иг��ок', avatar:profAvatar(), text:t, ts:firebase.database.ServerValue.TIMESTAMP }); }catch(e){ console.error('chatSend', e); }
+  try{ refFn().push({ uid:PROF.uid, nick:profNick()||'Игрок', avatar:profAvatar(), text:t, ts:firebase.database.ServerValue.TIMESTAMP }); }catch(e){ console.error('chatSend', e); }
 }
 
 function chatStartWorld(){
@@ -4955,7 +4956,7 @@ var SHOP_ITEMS=[
   {id:'p_gold', type:'piece', name:'Золото', price:250, ph:'#ffd54a', pd:'#a67c00'},
   {id:'p_neon', type:'piece', name:'Неон', price:200, ph:'#39ff14', pd:'#1f9e00'},
   {id:'p_ice', type:'piece', name:'Лёд', price:150, ph:'#8fe3ff', pd:'#2b7fa6'},
-  {id:'p_lava', type:'piece', name:'��ава', price:200, ph:'#ff6a2b', pd:'#a62e00'},
+  {id:'p_lava', type:'piece', name:'Лава', price:200, ph:'#ff6a2b', pd:'#a62e00'},
   {id:'p_amethyst', type:'piece', name:'Аметист', price:150, ph:'#b06bff', pd:'#5a1fa6'},
   {id:'d_default', type:'dice', name:'Классика', price:0, dice:null},
   {id:'d_gold', type:'dice', name:'Золотой', price:180, dice:{l:'#fff3c4',c:'#ffd54a',d:'#a67c00'}},

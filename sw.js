@@ -1,13 +1,10 @@
 // Мандашня — service worker (offline-ready)
-const CACHE = "mandashnya-v17";
+const CACHE = "mandashnya-v19";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./theme.css",
-  "./engine3d.js",
-  "./textures3d.js",
-  "./board3d.js",
   "./game.js",
   "./firebase-config.js",
   "./manifest.json",
