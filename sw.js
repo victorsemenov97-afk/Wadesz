@@ -1,5 +1,5 @@
 // Мандашня — service worker (offline-ready)
-const CACHE = "mandashnya-v14";
+const CACHE = "mandashnya-v15";
 const ASSETS = [
   "./",
   "./index.html",
