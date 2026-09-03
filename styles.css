@@ -793,5 +793,83 @@ details.acc > summary::-webkit-details-marker{ display:none; }
 details.acc > summary::after{ content:"\25be"; color:#6b7f96; transition:transform .2s; }
 details.acc[open] > summary::after{ transform:rotate(180deg); }
 details.acc > .setup-block{ margin:0 12px 12px !important; }
-#gameChatEmojis button{ background:#132338; border:1px solid #2a3b52; border-radius:8px; font-size:18px; line-height:1; padding:4px 6px; cursor:pointer; }
-#gameChatEmojis button:active{ background:#1d3350; }
+
+/* ============ ДЕРЕВЯННАЯ ТЕМА (wood) ============ */
+html,body{
+  background:
+    repeating-linear-gradient(90deg, rgba(60,35,12,0.10) 0 2px, rgba(120,80,35,0.04) 2px 7px),
+    repeating-linear-gradient(0deg, rgba(60,35,12,0.05) 0 3px, transparent 3px 9px),
+    radial-gradient(circle at 50% -10%, #7a4e1f 0%, #4a2f13 55%, #2e1c0b 100%) !important;
+  color:#f3e3c2 !important;
+}
+.brand h1{
+  background:linear-gradient(135deg,#ffe6a8,#e0a53a 55%,#a9752f) !important;
+  -webkit-background-clip:text; background-clip:text; color:transparent !important;
+  text-shadow:0 2px 0 rgba(60,35,12,0.35);
+  filter:drop-shadow(0 3px 6px rgba(40,22,8,0.55)) !important;
+}
+.brand .star{ color:#e0a53a !important; }
+.sub{ color:#d9bd8b !important; }
+.menu-foot{ color:#c7a66f !important; }
+.rule,.horizon{ background:linear-gradient(90deg,transparent,#8a5a26,transparent) !important; }
+
+.menu-btn{
+  background:linear-gradient(180deg,#b6842f,#8a5a24 60%,#6d4419) !important;
+  border:2px solid #5e3d15 !important;
+  color:#fff4e0 !important;
+  border-radius:14px !important;
+  box-shadow:0 4px 0 #4a2f13, 0 8px 16px rgba(30,18,6,0.45), inset 0 2px 0 rgba(255,230,180,0.35) !important;
+  text-shadow:0 1px 2px rgba(40,22,8,0.6);
+  font-weight:800 !important;
+  letter-spacing:0.4px;
+}
+.menu-btn:active{ transform:translateY(2px); box-shadow:0 2px 0 #4a2f13, 0 4px 10px rgba(30,18,6,0.4), inset 0 2px 0 rgba(255,230,180,0.3) !important; }
+.menu-btn.primary{
+  background:linear-gradient(180deg,#e8b24a,#c07f24 60%,#96601a) !important;
+  border-color:#6d4419 !important;
+}
+.menu-btn.warn{ background:linear-gradient(180deg,#b5542f,#8a3a1c 60%,#6d2c14) !important; }
+
+.setup-block{
+  background:linear-gradient(180deg, rgba(120,80,35,0.30), rgba(60,38,16,0.42)) !important;
+  border:2px solid #6d4419 !important;
+  box-shadow:0 8px 24px rgba(30,18,6,0.5), inset 0 1px 0 rgba(255,230,180,0.18) !important;
+  backdrop-filter:blur(3px) !important;
+}
+.setup-block label{ color:#e6c893 !important; }
+
+.sheet{ background:linear-gradient(180deg,#5a3a18,#3a250f) !important; }
+.sheet-head h3{ color:#ffe6a8 !important; }
+.sheet-close,.icon-btn,#soundBtn,#menuBtn{
+  background:linear-gradient(180deg,#a9752f,#734d1e) !important;
+  border:2px solid #5e3d15 !important; color:#fff4e0 !important;
+}
+.sheet-body{ color:#eeddbf !important; }
+.sheet-body h4{ color:#e0a53a !important; }
+
+#turnBanner{
+  background:linear-gradient(180deg,#a9752f,#6d4419) !important;
+  border:2px solid #5e3d15 !important; color:#fff4e0 !important; border-radius:12px;
+}
+#boardCanvas{
+  border-radius:18px !important;
+  box-shadow:0 16px 40px rgba(30,18,6,0.7), 0 0 0 8px #5a3a18, 0 0 0 11px #3a250f, inset 0 0 0 1px rgba(255,230,180,0.15) !important;
+  background:#c99a52 !important;
+}
+
+/* чат: тёплые деревянные тона + крестик */
+#worldChatMsgs,#roomChatMsgs,#gameChatMsgs{
+  background:rgba(50,32,14,0.55) !important; border:1px solid #6d4419 !important; color:#f3e3c2 !important;
+}
+#worldChatInput,#roomChatInput,#gameChatInput,#friendInput{
+  background:rgba(50,32,14,0.6) !important; border:1px solid #6d4419 !important; color:#f3e3c2 !important;
+}
+#gameChat{ background:linear-gradient(180deg,#5a3a18,#3a250f) !important; border:2px solid #6d4419 !important; }
+
+/* эмоции-кнопка (в игре — только смайлы) */
+#reactToggle{ background:linear-gradient(180deg,#c07f24,#8a5a24) !important; border:2px solid #5e3d15 !important; }
+#reactBar{ background:linear-gradient(180deg,#5a3a18,#3a250f) !important; border:2px solid #6d4419 !important; }
+
+/* segmented / toggles тёплые */
+.segmented button{ background:rgba(120,80,35,0.22) !important; border:1px solid #6d4419 !important; color:#f0dcb2 !important; }
+.segmented button.active{ background:linear-gradient(135deg,#e8b24a,#a9752f) !important; color:#3a250f !important; border-color:#6d4419 !important; }
