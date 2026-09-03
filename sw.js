@@ -1,5 +1,5 @@
 // Мандашня — service worker (offline-ready)
-const CACHE = "mandashnya-v15";
+const CACHE = "mandashnya-v16";
 const ASSETS = [
   "./",
   "./index.html",
@@ -11,7 +11,15 @@ const ASSETS = [
   "./icon-512.png",
   "./icon-180.png",
   "./icon-192-maskable.png",
-  "./icon-512-maskable.png"
+  "./icon-512-maskable.png",
+  "./assets/wood_light.jpg",
+  "./assets/wood_dark.jpg",
+  "./assets/bg.jpg",
+  "./assets/pawn_red.png",
+  "./assets/pawn_yellow.png",
+  "./assets/pawn_blue.png",
+  "./assets/pawn_green.png",
+  "./assets/nameplate.png"
 ];
 
 self.addEventListener("install", (e) => {

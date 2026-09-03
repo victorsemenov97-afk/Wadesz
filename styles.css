@@ -873,3 +873,84 @@ html,body{
 /* segmented / toggles тёплые */
 .segmented button{ background:rgba(120,80,35,0.22) !important; border:1px solid #6d4419 !important; color:#f0dcb2 !important; }
 .segmented button.active{ background:linear-gradient(135deg,#e8b24a,#a9752f) !important; color:#3a250f !important; border-color:#6d4419 !important; }
+
+/* ================= v16 REAL-ASSET WOODEN THEME ================= */
+html,body{
+  background:linear-gradient(rgba(20,12,4,0.50),rgba(12,7,2,0.85)), url('assets/bg.jpg') center top/cover fixed no-repeat !important;
+  color:#f4e6c8;
+}
+#menu,#setup,#online,#profile,#game,#app,.screen,.view,main{ background:transparent !important; }
+
+.brand h1{ color:#ffd76a !important; text-shadow:0 2px 0 #6d4a17, 0 0 18px rgba(255,200,90,.4) !important; letter-spacing:1px; }
+
+.menu-btn{
+  background:linear-gradient(rgba(245,215,155,0.28),rgba(120,80,35,0.42)), url('assets/wood_light.jpg') center/cover !important;
+  border:2px solid #5e3d15 !important;
+  color:#3a220b !important;
+  font-weight:800 !important;
+  text-shadow:0 1px 0 rgba(255,246,220,0.55) !important;
+  box-shadow:0 5px 12px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,248,225,.55), inset 0 -4px 9px rgba(70,44,16,.45) !important;
+  border-radius:14px !important;
+}
+.menu-btn:active{ transform:translateY(2px); }
+
+.sheet,.setup-block,#gameChat,.card,.panel,#online>div,#profile>div{
+  background:linear-gradient(rgba(42,25,10,0.86),rgba(24,14,5,0.94)), url('assets/wood_dark.jpg') center/cover !important;
+  border:1px solid #6b4a1e !important;
+  border-radius:16px !important;
+  box-shadow:0 10px 28px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,230,180,.15) !important;
+}
+.sheet-head h3,.setup-block h3,.setup-block h2{ color:#ffd76a !important; }
+
+/* chat surfaces */
+#worldChatMsgs,#gameChatMsgs,#roomChatMsgs{
+  background:rgba(18,11,4,0.42) !important;
+  border:1px solid #6b4a1e !important;
+  border-radius:14px !important;
+}
+#worldChatInput,#gameChatInput,#roomChatInput{
+  background:rgba(18,11,4,0.55) !important;
+  border:1px solid #6b4a1e !important;
+  color:#f6e6c8 !important;
+  border-radius:12px !important;
+}
+#worldChatInput::placeholder,#gameChatInput::placeholder,#roomChatInput::placeholder{ color:#c9b489 !important; }
+#gameChat{ box-shadow:0 12px 30px rgba(0,0,0,.6) !important; }
+
+/* chat message bubbles */
+.chat-bubble{
+  background:linear-gradient(rgba(64,40,15,0.94),rgba(42,25,9,0.96)) !important;
+  border:1px solid #7c5220 !important;
+  color:#f6e6c8 !important;
+  border-radius:14px !important;
+  padding:6px 10px !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.35) !important;
+}
+.chat-bubble.right{ background:linear-gradient(rgba(90,62,24,0.96),rgba(60,40,15,0.97)) !important; }
+
+/* close X buttons */
+.sheet-close,#gameChatClose{
+  background:rgba(0,0,0,0.35) !important;
+  color:#ffd76a !important;
+  border:1.5px solid #ffd76a !important;
+  border-radius:50% !important;
+  width:34px !important; height:34px !important;
+  display:flex !important; align-items:center; justify-content:center;
+  font-size:18px !important; cursor:pointer;
+}
+
+/* board frame */
+#boardCanvas{
+  border:7px solid #4a2f12 !important;
+  border-radius:18px !important;
+  box-shadow:0 12px 34px rgba(0,0,0,.6), 0 0 0 2px #7c5220 inset !important;
+  background:#5a3c18 !important;
+}
+
+/* top game bar wood */
+#turnBanner,.topbar,#scoreStrip{
+  background:linear-gradient(rgba(42,25,10,0.8),rgba(24,14,5,0.9)), url('assets/wood_dark.jpg') center/cover !important;
+  border:1px solid #6b4a1e !important;
+  border-radius:12px !important;
+  color:#f4e6c8 !important;
+}
