@@ -2,16 +2,18 @@
   "rules": {
     "profiles": {
       ".read": "auth != null",
-      ".indexOn": ["points","seasonPoints"],
+      ".indexOn": ["points", "seasonPoints"],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['nick','avatar'])",
         "nick":   { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
         "avatar": { ".validate": "newData.isString() && newData.val().length <= 8" },
-        "coins":  { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "coins":  { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000" },
         "games":  { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "wins":   { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "points": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "seasonPoints": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "xp":     { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "$other": { ".validate": true }
       }
     },
@@ -23,7 +25,7 @@
         ".write": "auth != null",
         "chat": {
           "$msg": {
-            ".validate": "newData.hasChildren(['uid','text']) && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('text').val().length > 0"
+            ".validate": "newData.hasChildren(['uid','text']) && newData.child('uid').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 200 && (!newData.child('nick').exists() || newData.child('nick').val().length <= 20) && (!newData.child('avatar').exists() || newData.child('avatar').val().length <= 8)"
           }
         }
       }
@@ -32,8 +34,9 @@
       ".read": "auth != null",
       "$msg": {
         ".write": "auth != null && !data.exists()",
-        ".validate": "newData.hasChildren(['uid','text']) && newData.child('uid').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('text').val().length > 0"
+        ".validate": "newData.hasChildren(['uid','text']) && newData.child('uid').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 200 && (!newData.child('nick').exists() || newData.child('nick').val().length <= 20) && (!newData.child('avatar').exists() || newData.child('avatar').val().length <= 8)"
       }
-    }
+    },
+    "$other": { ".read": false, ".write": false }
   }
 }

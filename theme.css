@@ -1,0 +1,233 @@
+/* =====================================================================
+   МАНДАШНЯ · СОВРЕМЕННАЯ ДИЗАЙН-СИСТЕМА (финальный релиз)
+   Загружается ПОСЛЕ styles.css и перекрывает деревянную тему v16.
+   Насыщенные градиенты, стекло, крупные кнопки, единый премиум-стиль.
+   ===================================================================== */
+:root{
+  --m-bg0:#080b1c; --m-bg1:#0e1436; --m-bg2:#05070f;
+  --m-violet:#7c5cff; --m-violet2:#5b3ff0; --m-indigo:#4a6bff;
+  --m-cyan:#22d3ee; --m-gold:#ffcc3d; --m-pink:#ff5aa0;
+  --m-green:#37e0a0; --m-red:#ff5a6e;
+  --m-ink:#eef3ff; --m-ink2:#c2ceec; --m-muted:#8a99bf;
+  --m-card:rgba(255,255,255,0.05); --m-card2:rgba(255,255,255,0.08);
+  --m-line:rgba(255,255,255,0.11); --m-line2:rgba(255,255,255,0.18);
+  --m-glow:0 12px 34px rgba(91,63,240,0.45); --m-r:18px;
+}
+
+/* ---------- Фон приложения ---------- */
+html,body{
+  background:
+    radial-gradient(1200px 760px at 50% -18%, rgba(124,92,255,0.30), transparent 60%),
+    radial-gradient(820px 620px at 108% 4%, rgba(34,211,238,0.15), transparent 55%),
+    radial-gradient(760px 760px at -8% 108%, rgba(255,90,160,0.13), transparent 55%),
+    linear-gradient(180deg, var(--m-bg1) 0%, var(--m-bg0) 58%, var(--m-bg2) 100%) !important;
+  color:var(--m-ink) !important;
+}
+body::before{
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+  background:
+    radial-gradient(2px 2px at 18% 30%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(1.6px 1.6px at 72% 22%, rgba(255,255,255,.40), transparent 60%),
+    radial-gradient(1.6px 1.6px at 42% 74%, rgba(255,255,255,.35), transparent 60%),
+    radial-gradient(2px 2px at 86% 66%, rgba(255,255,255,.30), transparent 60%),
+    radial-gradient(1.4px 1.4px at 30% 52%, rgba(255,255,255,.28), transparent 60%);
+}
+#app{ position:relative; z-index:1; }
+#menu,#setup,#online,#profile,#game,#app,.screen,.view,main{ background:transparent !important; }
+
+/* ---------- Заголовок / бренд ---------- */
+.brand h1, #setup h1{
+  font-size:34px !important; letter-spacing:3px !important; font-weight:900 !important;
+  background:linear-gradient(96deg,#c9b8ff 0%, var(--m-violet) 22%, var(--m-cyan) 55%, var(--m-gold) 92%) !important;
+  -webkit-background-clip:text !important; background-clip:text !important;
+  -webkit-text-fill-color:transparent !important; color:transparent !important;
+  text-transform:uppercase; text-shadow:none !important; margin:0 !important;
+  filter:drop-shadow(0 4px 22px rgba(124,92,255,0.45)) !important;
+}
+#setup h1{ font-size:26px !important; letter-spacing:2px !important; }
+.brand .star{ color:var(--m-gold) !important; font-size:18px !important; filter:drop-shadow(0 0 10px rgba(255,204,61,.8)) !important; }
+.sub{ color:var(--m-ink2) !important; font-size:11.5px !important; letter-spacing:2px !important; text-transform:uppercase; }
+.rule{ background:linear-gradient(90deg,transparent,var(--m-violet),var(--m-cyan),transparent) !important; height:2px !important; opacity:.6; border:none !important; }
+
+/* ---------- Главное меню ---------- */
+#menu{ gap:13px !important; padding:22px 22px 18px !important; }
+.menu-hero .horizon{
+  height:118px !important; border-radius:20px !important; border:1px solid var(--m-line2) !important;
+  background:
+    radial-gradient(120% 130% at 50% -30%, rgba(124,92,255,.55), transparent 60%),
+    linear-gradient(180deg,#16276a 0%, #24379a 45%, #0b1330 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 16px 40px rgba(10,16,45,.7) !important;
+}
+.menu-hero .horizon::after{ font-size:52px !important; filter:drop-shadow(0 8px 16px rgba(0,0,0,.6)) !important; }
+.menu-hero .horizon::before{ background:linear-gradient(90deg,transparent,rgba(255,255,255,.7),transparent) !important; }
+.menu-list{ gap:11px !important; }
+.menu-btn{
+  background:linear-gradient(180deg, var(--m-card2), var(--m-card)) !important;
+  border:1px solid var(--m-line) !important; color:var(--m-ink) !important;
+  font-weight:800 !important; text-transform:none !important; letter-spacing:.4px !important;
+  text-shadow:none !important; border-radius:16px !important; padding:16px 18px !important; font-size:14.5px !important;
+  box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  backdrop-filter:blur(10px); transition:transform .12s ease, box-shadow .2s ease, border-color .2s ease !important;
+}
+.menu-btn:active{ transform:translateY(1px) scale(.99) !important; }
+.menu-btn.primary{
+  background:linear-gradient(135deg, var(--m-violet) 0%, var(--m-indigo) 100%) !important;
+  border-color:transparent !important; color:#fff !important; font-size:16px !important; padding:18px !important;
+  box-shadow:var(--m-glow), inset 0 1px 0 rgba(255,255,255,.35) !important;
+}
+.menu-btn.warn{ color:#ffb7c0 !important; border-color:rgba(255,90,110,.32) !important; background:linear-gradient(180deg, rgba(255,90,110,.13), rgba(255,90,110,.03)) !important; }
+.menu-foot{ color:var(--m-muted) !important; font-size:10px !important; letter-spacing:1px !important; }
+
+/* ---------- Карточки: настройки/профиль/онлайн ---------- */
+.sheet,.setup-block,.card,.panel,#online>div,#profile>div{
+  background:linear-gradient(180deg, var(--m-card2), var(--m-card)) !important;
+  border:1px solid var(--m-line) !important; border-radius:var(--m-r) !important;
+  box-shadow:0 12px 32px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06) !important;
+  backdrop-filter:blur(12px) !important;
+}
+.sheet{ border-radius:0 !important; background:linear-gradient(180deg, rgba(12,16,36,.99), rgba(6,8,18,.995)) !important; }
+.setup-block label{ color:var(--m-cyan) !important; letter-spacing:1px !important; font-size:11px !important; font-weight:700 !important; }
+.sheet-head h3,.setup-block h3,.setup-block h2{ color:var(--m-ink) !important; font-weight:900 !important; }
+.sheet-body h4{ color:var(--m-cyan) !important; }
+.acc summary{ color:var(--m-ink2) !important; }
+
+/* ---------- Сегментированные переключатели ---------- */
+.segmented button, .seg button{
+  border-radius:12px !important; background:rgba(255,255,255,0.055) !important;
+  border:1px solid var(--m-line) !important; color:var(--m-ink) !important; font-weight:700 !important;
+  text-shadow:none !important; transition:all .18s cubic-bezier(.4,0,.2,1) !important;
+}
+.segmented button.active, .seg button.active{
+  background:linear-gradient(135deg, var(--m-violet), var(--m-indigo)) !important;
+  color:#fff !important; border-color:transparent !important;
+  box-shadow:0 6px 18px rgba(91,63,240,.45) !important; transform:translateY(-1px) !important;
+}
+
+/* ---------- Кнопки старта/действий ---------- */
+#startBtn{
+  background:linear-gradient(135deg, var(--m-violet) 0%, var(--m-indigo) 55%, var(--m-cyan) 135%) !important;
+  border:none !important; border-radius:16px !important; color:#fff !important; font-size:16px !important;
+  letter-spacing:1.4px !important; padding:17px !important; box-shadow:var(--m-glow) !important;
+}
+#rulesBtn,#setupBack,.ghost{ border-radius:13px !important; background:var(--m-card) !important; border:1px solid var(--m-line) !important; color:var(--m-ink2) !important; text-shadow:none !important; }
+#resumeBtn{ background:linear-gradient(135deg, var(--m-green), #14b37d) !important; border:none !important; color:#04231a !important; border-radius:13px !important; box-shadow:0 8px 22px rgba(55,224,160,.4) !important; }
+.resume-info{ color:var(--m-ink2) !important; }
+
+/* ---------- Поля ввода (перекрываем инлайн-стили) ---------- */
+#profNickInput,#joinCodeInput,#roomChatInput,#gameChatInput,#worldChatInput,#friendInput,
+#worldChatMsgs,#roomChatMsgs,#gameChatMsgs{
+  background:rgba(255,255,255,0.05) !important; border:1px solid var(--m-line2) !important;
+  color:var(--m-ink) !important; border-radius:13px !important;
+}
+#worldChatInput::placeholder,#gameChatInput::placeholder,#roomChatInput::placeholder{ color:var(--m-muted) !important; }
+#gameChat{ background:linear-gradient(180deg, rgba(14,20,44,.98), rgba(7,10,22,.99)) !important; border:1px solid var(--m-line2) !important; }
+.chat-bubble{ background:rgba(255,255,255,0.06) !important; border:1px solid var(--m-line) !important; color:var(--m-ink) !important; border-radius:14px !important; }
+.chat-bubble.right{ background:linear-gradient(135deg, rgba(124,92,255,.35), rgba(74,107,255,.28)) !important; }
+
+/* ---------- Игровой HUD ---------- */
+#topbar{ padding:8px 14px 10px !important; gap:8px !important; }
+#menuBtn,.icon-btn,#soundBtn,.sheet-close,#gameChatClose{
+  background:var(--m-card2) !important; border:1px solid var(--m-line2) !important; color:var(--m-ink) !important;
+  border-radius:14px !important; box-shadow:0 4px 14px rgba(0,0,0,.3) !important;
+}
+.sheet-close,#gameChatClose{ border-radius:50% !important; }
+#turnBanner{
+  border-radius:14px !important; font-size:12.5px !important; letter-spacing:.5px !important; font-weight:800 !important;
+  background:linear-gradient(180deg, var(--m-card2), var(--m-card)) !important; border:1px solid var(--m-line) !important;
+  color:var(--m-ink) !important; text-transform:none !important; backdrop-filter:blur(8px);
+}
+#scoreStrip{
+  gap:7px !important; padding:2px 12px 4px !important;
+  background:transparent !important; border:none !important;
+}
+
+/* ---------- Поле ---------- */
+#boardWrap{ padding:2px 8px !important; }
+#boardCanvas{ border:1px solid var(--m-line2) !important; border-radius:18px !important; background:#0a0e22 !important; box-shadow:0 24px 58px rgba(0,0,0,.6) !important; }
+body.r3d #boardCanvas{ background:transparent !important; }
+
+/* ---------- Кубик: современная кнопка броска (3D-кубик рисуется на поле) ---------- */
+body.r3d #diceBtn .dice-stage{ display:none !important; }
+body.r3d #diceBtn{
+  width:78px !important; height:78px !important; border-radius:50% !important; padding:0 !important;
+  background:radial-gradient(circle at 34% 28%, #9a8bff, var(--m-violet) 55%, var(--m-violet2) 100%) !important;
+  border:1px solid rgba(255,255,255,0.4) !important;
+  box-shadow:0 12px 30px rgba(91,63,240,.6), inset 0 2px 8px rgba(255,255,255,.4) !important;
+  display:flex !important; align-items:center; justify-content:center;
+}
+body.r3d #diceBtn::after{ content:'🎲'; font-size:38px; line-height:1; filter:drop-shadow(0 2px 4px rgba(0,0,0,.45)); }
+body.r3d #diceBtn:active{ transform:scale(.93) !important; }
+body.r3d #diceBtn.disabled{ filter:grayscale(.55) brightness(.7); opacity:.85 !important; }
+body.r3d #diceBtn:not(.disabled){ animation:mRollPulse 1.9s ease-out infinite; }
+@keyframes mRollPulse{
+  0%{ box-shadow:0 12px 30px rgba(91,63,240,.6), inset 0 2px 8px rgba(255,255,255,.4), 0 0 0 0 rgba(124,92,255,.5); }
+  100%{ box-shadow:0 12px 30px rgba(91,63,240,.6), inset 0 2px 8px rgba(255,255,255,.4), 0 0 0 18px rgba(124,92,255,0); }
+}
+#choiceBar button.primary{ background:linear-gradient(135deg,var(--m-violet),var(--m-indigo)) !important; color:#fff !important; border:none !important; box-shadow:0 6px 16px rgba(91,63,240,.45) !important; }
+#passBtn{ border-radius:12px !important; }
+
+/* ---------- Штоки/паузa ---------- */
+.pause-btn{ border-radius:14px !important; background:linear-gradient(180deg, var(--m-card2), var(--m-card)) !important; border:1px solid var(--m-line) !important; text-transform:none !important; letter-spacing:.3px !important; font-size:14px !important; color:var(--m-ink) !important; }
+.pause-btn.primary{ background:linear-gradient(135deg,var(--m-violet),var(--m-indigo)) !important; border-color:transparent !important; color:#fff !important; box-shadow:var(--m-glow) !important; }
+.pause-btn.warn{ color:#ffb7c0 !important; border-color:rgba(255,90,110,.32) !important; }
+.switch{ background:rgba(255,255,255,0.14) !important; }
+.switch.on{ background:linear-gradient(135deg,var(--m-violet),var(--m-indigo)) !important; box-shadow:0 0 14px rgba(91,63,240,.5) !important; }
+
+/* ---------- Магазин ---------- */
+#shopGrid{ display:grid !important; grid-template-columns:repeat(2,1fr) !important; gap:10px !important; }
+#shopGrid > *{ border-radius:16px !important; }
+
+/* ---------- Победный экран ---------- */
+#winOverlay{ background:radial-gradient(120% 120% at 50% 0%, rgba(124,92,255,.28), rgba(6,9,18,.93) 60%) !important; }
+#winOverlay button{ background:linear-gradient(135deg,var(--m-violet),var(--m-indigo)) !important; border:none !important; border-radius:15px !important; color:#fff !important; letter-spacing:.5px !important; box-shadow:var(--m-glow) !important; }
+#winOverlay .ghost{ background:var(--m-card) !important; border:1px solid var(--m-line) !important; color:var(--m-ink2) !important; }
+
+/* ---------- Плавающие кнопки чата/эмоций ---------- */
+#gameChatBtn{ background:linear-gradient(135deg,var(--m-indigo),var(--m-violet)) !important; border:none !important; box-shadow:0 8px 20px rgba(74,107,255,.5) !important; }
+#reactToggle{ background:linear-gradient(135deg,var(--m-pink),#c23bff) !important; border:none !important; box-shadow:0 8px 20px rgba(194,59,255,.5) !important; }
+#reactBar{ background:linear-gradient(180deg, rgba(14,20,44,.98), rgba(7,10,22,.99)) !important; border:1px solid var(--m-line2) !important; }
+
+
+/* ===== ИСПРАВЛЕНИЕ: в 3D-режиме кубик рисует WebGL. #diceBtn — ПРОЗРАЧНАЯ зона тапа ===== */
+body.r3d #diceBtn{
+  background:none !important; border:0 !important; box-shadow:none !important;
+  width:98px !important; height:98px !important; border-radius:50% !important; padding:0 !important; display:block !important;
+}
+body.r3d #diceBtn .dice-stage{ display:none !important; }
+body.r3d #diceBtn::after{
+  content:'' !important; position:absolute !important; inset:0 !important; border-radius:50% !important;
+  background:none !important; filter:none !important; opacity:1 !important; z-index:0; pointer-events:none;
+  box-shadow:0 0 0 0 rgba(124,92,255,0) !important;
+}
+body.r3d #diceBtn:not(.disabled){ animation:none !important; }
+body.r3d #diceBtn:not(.disabled)::after{ animation:mDiceRing 2s ease-out infinite !important; }
+@keyframes mDiceRing{
+  0%{ box-shadow:0 0 0 1px rgba(124,92,255,.5), 0 0 14px 2px rgba(124,92,255,.22) !important; }
+  75%{ box-shadow:0 0 0 13px rgba(124,92,255,0), 0 0 16px 3px rgba(124,92,255,.05) !important; }
+  100%{ box-shadow:0 0 0 13px rgba(124,92,255,0) !important; }
+}
+body.r3d #diceBtn:active{ transform:translate(-50%,-50%) scale(0.94) !important; }
+body.r3d #diceBtn.disabled{ opacity:.9 !important; filter:none !important; }
+body.r3d #diceBtn.disabled::after{ animation:none !important; box-shadow:none !important; }
+
+/* ===== Убрать клаттер для рядового игрока: крипто-пруф честности кубика ===== */
+.proof-box{ display:none !important; }
+
+
+/* ===== Магазин: насыщенные карточки (структура: лейбл + flex-ряд) ===== */
+#shopGrid{ display:block !important; }
+#shopGrid > div[style*="flex-wrap"]{ display:grid !important; grid-template-columns:repeat(auto-fill, minmax(102px,1fr)) !important; gap:10px !important; }
+#shopGrid > div:not([style*="flex"]){ color:var(--m-ink2) !important; font-weight:800 !important; letter-spacing:.3px; margin:16px 2px 4px !important; }
+#shopGrid .shop-card{
+  width:auto !important; border-radius:16px !important; padding:12px 10px !important;
+  box-shadow:0 12px 26px rgba(3,6,20,.5), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease !important;
+}
+#shopGrid .shop-card:active{ transform:scale(.96) !important; }
+
+
+/* ===== Настройки: длинные подписи не должны выталкивать переключатель за край ===== */
+.set-row{ display:flex !important; align-items:center !important; justify-content:space-between !important; gap:12px !important; }
+.set-row > div:first-child{ min-width:0 !important; flex:1 1 auto !important; }
+.set-row .hint{ white-space:normal !important; overflow-wrap:anywhere !important; }
+.set-row .switch{ flex:0 0 auto !important; }

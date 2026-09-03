@@ -1,9 +1,13 @@
 // Мандашня — service worker (offline-ready)
-const CACHE = "mandashnya-v16";
+const CACHE = "mandashnya-v17";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./theme.css",
+  "./engine3d.js",
+  "./textures3d.js",
+  "./board3d.js",
   "./game.js",
   "./firebase-config.js",
   "./manifest.json",
@@ -39,6 +43,10 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // Статику берём из кеша; сетевые запросы (Firebase) не кешируем.
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+  if (!sameOrigin) return; // Firebase/Google — напрямую в сеть
   e.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
@@ -49,7 +57,6 @@ self.addEventListener("fetch", (e) => {
         });
         return res;
       }).catch(() => {
-        // офлайн fallback для навигации
         if (req.mode === "navigate") return caches.match("./index.html");
       });
     })
